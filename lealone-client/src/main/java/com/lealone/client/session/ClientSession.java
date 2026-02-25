@@ -57,20 +57,8 @@ import com.lealone.storage.lob.LobLocalStorage;
 // 虽然ConnectionInfo允许在JDBC URL中指定多个server，但是放在ClientSessionFactory中处理了。
 public class ClientSession extends SessionBase implements LobLocalStorage.LobReader {
 
-    private final static boolean isVirtualThreadAvailable;
-    static {
-        boolean available;
-        try {
-            Thread.currentThread().isVirtual();
-            available = true;
-        } catch (Throwable t) {
-            available = false;
-        }
-        isVirtualThreadAvailable = available;
-    }
-
     private static boolean isVirtualThread() {
-        return isVirtualThreadAvailable && Thread.currentThread().isVirtual();
+        return Thread.currentThread().isVirtual();
     }
 
     private final TcpClientConnection tcpConnection;
