@@ -84,9 +84,10 @@ public class LealoneApplication {
         config.put("enabled", "true");
         if (!config.containsKey("default_schema"))
             config.put("default_schema", "public");
-        Config lealoneConfig = Lealone.createConfig();
+        Lealone lealone = new Lealone();
+        Config lealoneConfig = lealone.createConfig();
         Config.mergeEngines(config, lealoneConfig.protocol_server_engines);
-        new Lealone().start(args, lealoneConfig);
+        lealone.start(args, lealoneConfig);
     }
 
     public static void start(String dbName, String... sqlScripts) {

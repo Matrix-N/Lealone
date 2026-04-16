@@ -5,158 +5,144 @@
  */
 package com.lealone.common.logging.impl;
 
-import com.lealone.common.exceptions.DbException;
 import com.lealone.common.logging.Logger;
+import com.lealone.common.trace.Trace;
 
-class ConsoleLogger implements Logger {
+class FileLogger implements Logger {
+
+    private Trace trace;
+
+    FileLogger(Trace trace) {
+        this.trace = trace;
+    }
 
     @Override
     public boolean isWarnEnabled() {
-        return true;
+        return trace.isInfoEnabled();
     }
 
     @Override
     public boolean isInfoEnabled() {
-        return true;
+        return trace.isInfoEnabled();
     }
 
     @Override
     public boolean isDebugEnabled() {
-        return false;
+        return trace.isDebugEnabled();
     }
 
     @Override
     public boolean isTraceEnabled() {
-        return false;
+        return trace.isDebugEnabled();
     }
 
     @Override
     public void fatal(Object message) {
-        log(message);
+        error(message);
     }
 
     @Override
     public void fatal(Object message, Throwable t) {
-        log(message, t);
+        error(message, t);
     }
 
     @Override
     public void error(Object message) {
-        log(message);
+        trace.error(null, message.toString());
     }
 
     @Override
     public void error(Object message, Object... params) {
-        log(message, params);
+        trace.error(null, Logger.format(message, params));
     }
 
     @Override
     public void error(Object message, Throwable t) {
-        log(message, t);
+        trace.error(t, message.toString());
     }
 
     @Override
     public void error(Object message, Throwable t, Object... params) {
-        log(message, t, params);
+        trace.error(t, Logger.format(message, params));
     }
 
     @Override
     public void warn(Object message) {
-        log(message);
+        info(message);
     }
 
     @Override
     public void warn(Object message, Object... params) {
-        log(message, params);
+        info(message, params);
     }
 
     @Override
     public void warn(Object message, Throwable t) {
-        log(message, t);
+        info(message, t);
     }
 
     @Override
     public void warn(Object message, Throwable t, Object... params) {
-        log(message, t, params);
+        info(message, t, params);
     }
 
     @Override
     public void info(Object message) {
-        log(message);
+        trace.info(message.toString());
     }
 
     @Override
     public void info(Object message, Object... params) {
-        log(message, params);
+        trace.info(Logger.format(message, params));
     }
 
     @Override
     public void info(Object message, Throwable t) {
-        log(message, t);
+        trace.info(t, message.toString());
     }
 
     @Override
     public void info(Object message, Throwable t, Object... params) {
-        log(message, t, params);
+        trace.info(t, Logger.format(message, params));
     }
 
     @Override
     public void debug(Object message) {
-        log(message);
+        trace.debug(message.toString());
     }
 
     @Override
     public void debug(Object message, Object... params) {
-        log(message, params);
+        trace.debug(Logger.format(message, params));
     }
 
     @Override
     public void debug(Object message, Throwable t) {
-        log(message, t);
+        trace.debug(t, message.toString());
     }
 
     @Override
     public void debug(Object message, Throwable t, Object... params) {
-        log(message, t, params);
+        trace.debug(t, Logger.format(message, params));
     }
 
     @Override
     public void trace(Object message) {
-        log(message);
+        debug(message);
     }
 
     @Override
     public void trace(Object message, Object... params) {
-        log(message, params);
+        debug(message, params);
     }
 
     @Override
     public void trace(Object message, Throwable t) {
-        log(message, t);
+        debug(message, t);
     }
 
     @Override
     public void trace(Object message, Throwable t, Object... params) {
-        log(message, t, params);
-    }
-
-    private void log(Object message) {
-        System.out.println(message);
-    }
-
-    private void log(Object message, Object... params) {
-        System.out.println(Logger.format(message, params));
-    }
-
-    private void log(Object message, Throwable t) {
-        log(message);
-        if (t != null)
-            DbException.getCause(t).printStackTrace(System.err);
-    }
-
-    private void log(Object message, Throwable t, Object... params) {
-        log(message, params);
-        if (t != null)
-            DbException.getCause(t).printStackTrace(System.err);
+        debug(message, t, params);
     }
 }

@@ -39,6 +39,10 @@ public interface Trace {
      */
     boolean isDebugEnabled();
 
+    void error(String s);
+
+    void error(String s, Object... params);
+
     /**
      * Write a message with trace level ERROR to the trace system.
      *
@@ -79,6 +83,8 @@ public interface Trace {
      */
     void info(Throwable t, String s);
 
+    void info(Throwable t, String s, Object... params);
+
     /**
      * Write a SQL statement with trace level INFO to the trace system.
      *
@@ -117,6 +123,8 @@ public interface Trace {
      * @param s the message
      */
     void debug(Throwable t, String s);
+
+    void debug(Throwable t, String s, Object... params);
 
     /**
      * Write Java source code with trace level DEBUG to the trace system.

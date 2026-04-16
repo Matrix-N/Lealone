@@ -5,10 +5,11 @@
  */
 package com.lealone.common.logging;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.lealone.common.logging.impl.ConsoleLoggerFactory;
-import com.lealone.common.logging.impl.Log4j2LoggerFactory;
+import com.lealone.common.logging.impl.FileLoggerFactory;
 import com.lealone.common.util.Utils;
 
 public abstract class LoggerFactory {
@@ -17,9 +18,16 @@ public abstract class LoggerFactory {
 
     public static final String LOGGER_FACTORY_CLASS_NAME = "lealone.logger.factory";
     private static final ConcurrentHashMap<String, Logger> loggers = new ConcurrentHashMap<>();
-    private static final LoggerFactory loggerFactory = getLoggerFactory();
+    private static LoggerFactory loggerFactory = getLoggerFactory();
 
-    // 优先使用自定义的LoggerFactory，然后是log4j2，最后是Console
+    public static void init(Map<String, String> parameters) {
+        String type = parameters.get("type");
+        if ("file".contentEquals(type))
+            loggerFactory = new FileLoggerFactory(parameters);
+        else
+            loggerFactory = new ConsoleLoggerFactory();
+    }
+
     private static LoggerFactory getLoggerFactory() {
         String factoryClassName = null;
         try {
@@ -35,9 +43,6 @@ public abstract class LoggerFactory {
                 throw new IllegalArgumentException(
                         "Error instantiating class \"" + factoryClassName + "\"", e);
             }
-        } else if (LoggerFactory.class
-                .getResource("/org/apache/logging/log4j/spi/ExtendedLogger.class") != null) {
-            return new Log4j2LoggerFactory();
         } else {
             return new ConsoleLoggerFactory();
         }

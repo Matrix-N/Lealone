@@ -80,6 +80,21 @@ class DefaultTrace implements Trace {
     }
 
     @Override
+    public void error(String s) {
+        if (isEnabled(TraceSystem.ERROR)) {
+            traceWriter.write(TraceSystem.ERROR, module, s, null);
+        }
+    }
+
+    @Override
+    public void error(String s, Object... params) {
+        if (isEnabled(TraceSystem.ERROR)) {
+            s = MessageFormat.format(s, params);
+            traceWriter.write(TraceSystem.ERROR, module, s, null);
+        }
+    }
+
+    @Override
     public void error(Throwable t, String s) {
         if (isEnabled(TraceSystem.ERROR)) {
             traceWriter.write(TraceSystem.ERROR, module, s, t);
@@ -112,6 +127,14 @@ class DefaultTrace implements Trace {
     @Override
     public void info(Throwable t, String s) {
         if (isEnabled(TraceSystem.INFO)) {
+            traceWriter.write(TraceSystem.INFO, module, s, t);
+        }
+    }
+
+    @Override
+    public void info(Throwable t, String s, Object... params) {
+        if (isEnabled(TraceSystem.INFO)) {
+            s = MessageFormat.format(s, params);
             traceWriter.write(TraceSystem.INFO, module, s, t);
         }
     }
@@ -177,6 +200,14 @@ class DefaultTrace implements Trace {
     @Override
     public void debug(Throwable t, String s) {
         if (isEnabled(TraceSystem.DEBUG)) {
+            traceWriter.write(TraceSystem.DEBUG, module, s, t);
+        }
+    }
+
+    @Override
+    public void debug(Throwable t, String s, Object... params) {
+        if (isEnabled(TraceSystem.DEBUG)) {
+            s = MessageFormat.format(s, params);
             traceWriter.write(TraceSystem.DEBUG, module, s, t);
         }
     }

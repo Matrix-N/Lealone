@@ -58,4 +58,19 @@ public interface Logger {
     void trace(Object message, Throwable t);
 
     void trace(Object message, Throwable t, Object... params);
+
+    public static String format(Object message, Object... params) {
+        char[] chars = message.toString().toCharArray();
+        int length = chars.length;
+        StringBuilder s = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            if (chars[i] == '{' && chars[i + 1] == '}') {
+                s.append("%s");
+                i++;
+            } else {
+                s.append(chars[i]);
+            }
+        }
+        return String.format(s.toString(), params);
+    }
 }

@@ -4630,7 +4630,10 @@ public class SQLParserBase implements SQLParser {
             String k, v;
             do {
                 k = readUniqueIdentifier();
-                if (k.equalsIgnoreCase("scheduler")) {
+                if (k.equalsIgnoreCase("log")) {
+                    read(":");
+                    config.setLogParameters(parseParameters());
+                } else if (k.equalsIgnoreCase("scheduler")) {
                     read(":");
                     config.setSchedulerParameters(parseParameters());
                 } else if (k.equalsIgnoreCase("storage_engine")) {

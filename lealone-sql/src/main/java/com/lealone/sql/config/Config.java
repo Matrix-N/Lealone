@@ -30,6 +30,7 @@ public class Config {
     public ServerEncryptionOptions server_encryption_options;
     public ClientEncryptionOptions client_encryption_options;
 
+    public LogDef log;
     public SchedulerDef scheduler;
 
     public Config() {
@@ -45,6 +46,10 @@ public class Config {
         protocol_server_engines = new ArrayList<>(2);
         protocol_server_engines.add(createEngineDef("TCP", true, false));
         protocol_server_engines.add(createEngineDef("HTTP", false, false));
+
+        log = new LogDef();
+        log.parameters.put("type", "console");
+        log.parameters.put("level", "info");
 
         scheduler = new SchedulerDef();
         scheduler.parameters.put("scheduler_count", Runtime.getRuntime().availableProcessors() + "");
@@ -116,6 +121,10 @@ public class Config {
         mergeSchedulerParametersToEngines();
     }
 
+    public void setLogParameters(CaseInsensitiveMap<String> logParameters) {
+        log.parameters.putAll(logParameters);
+    }
+
     public void setSchedulerParameters(CaseInsensitiveMap<String> schedulerParameters) {
         scheduler.parameters.putAll(schedulerParameters);
     }
@@ -173,6 +182,9 @@ public class Config {
         public void setParameters(Map<String, String> parameters) {
             this.parameters = parameters;
         }
+    }
+
+    public static class LogDef extends MapPropertyTypeDef {
     }
 
     public static class SchedulerDef extends MapPropertyTypeDef {

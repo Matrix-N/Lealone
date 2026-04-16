@@ -36,6 +36,14 @@ class NoTrace implements Trace {
     }
 
     @Override
+    public void error(String s) {
+    }
+
+    @Override
+    public void error(String s, Object... params) {
+    }
+
+    @Override
     public void error(Throwable t, String s) {
     }
 
@@ -56,6 +64,10 @@ class NoTrace implements Trace {
     }
 
     @Override
+    public void info(Throwable t, String s, Object... params) {
+    }
+
+    @Override
     public void infoSQL(String sql, String params, int count, long time) {
     }
 
@@ -73,6 +85,10 @@ class NoTrace implements Trace {
 
     @Override
     public void debug(Throwable t, String s) {
+    }
+
+    @Override
+    public void debug(Throwable t, String s, Object... params) {
     }
 
     @Override

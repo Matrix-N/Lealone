@@ -5,6 +5,10 @@
 set lealone (
     base_dir: '${LEALONE_HOME}/data',
     listen_address: '127.0.0.1',
+    log: (
+        type: 'file',
+        level: 'info'
+    ),
     scheduler: (
         --scheduler_count: 8,  -- 默认是cpu核数
         prefer_batch_write: false,

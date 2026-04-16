@@ -54,7 +54,7 @@ import com.lealone.transaction.TransactionEngine;
 
 public class Lealone {
 
-    private static final Logger logger = LoggerFactory.getLogger(Lealone.class);
+    private static Logger logger;
 
     public static void main(String[] args) {
         new Lealone().start(args);
@@ -238,7 +238,6 @@ public class Lealone {
 
     private void run(boolean embedded, Config config, CountDownLatch latch, String dbName,
             String[] sqlScripts, String initSql) {
-        logger.info("Lealone version: {}", Constants.RELEASE_VERSION);
         try {
             setGlobalShutdownHook();
 
@@ -263,7 +262,6 @@ public class Lealone {
             Scheduler scheduler = schedulerFactory.getScheduler();
 
             beforeInit();
-            initBaseDir();
             initPluggableEngines(embedded);
 
             scheduler.handle(() -> {
@@ -340,13 +338,7 @@ public class Lealone {
     private void loadConfig(Config config) {
         if (config == null)
             config = createConfig();
-        if (baseDir != null)
-            config.base_dir = baseDir;
-        if (config.base_dir == null || Constants.DEFAULT_BASE_DIR.equals(config.base_dir)
-                || new File(config.base_dir).getName().equals(config.base_dir)) {
-            baseDir = new File(appDir, Constants.DEFAULT_DATA_DIR_NAME).getAbsolutePath();
-            config.base_dir = baseDir;
-        }
+
         if (host != null)
             config.listen_address = host;
         config.mergeProtocolServerParameters(TcpServerEngine.NAME, host, port);
@@ -358,7 +350,30 @@ public class Lealone {
         this.config = config;
     }
 
-    public static Config createConfig() {
+    private void setBaseDir(Config config) {
+        if (baseDir != null)
+            config.base_dir = baseDir;
+        if (config.base_dir == null || Constants.DEFAULT_BASE_DIR.equals(config.base_dir)
+                || new File(config.base_dir).getName().equals(config.base_dir)) {
+            baseDir = new File(appDir, Constants.DEFAULT_DATA_DIR_NAME).getAbsolutePath();
+            config.base_dir = baseDir;
+        }
+        if (config.base_dir == null || config.base_dir.isEmpty())
+            throw new ConfigException("base_dir must be specified and not empty");
+        String baseDir;
+        try {
+            baseDir = new File(config.base_dir).getCanonicalPath();
+        } catch (IOException e) {
+            baseDir = new File(config.base_dir).getAbsolutePath();
+        }
+        SysProperties.setBaseDir(baseDir);
+        LoggerFactory.init(config.log.parameters);
+        logger = LoggerFactory.getLogger(Lealone.class);
+        logger.info("Lealone version: {}", Constants.RELEASE_VERSION);
+        logger.info("Base dir: {}", baseDir.replace('\\', '/')); // 显示格式跟Loading config一样
+    }
+
+    public Config createConfig() {
         URL url = null;
         String configUrl = Config.getProperty("config");
         if (configUrl != null) {
@@ -369,17 +384,21 @@ public class Lealone {
             if (url == null)
                 url = Utils.toURL("lealone-test.sql");
             if (url == null) {
+                Config config = new Config();
+                setBaseDir(config);
                 logger.info("Use default config");
-                return new Config();
+                return config;
             }
         }
-        logger.info("Loading config from {}", url);
         try (InputStream is = url.openStream()) {
             String sql = new String(IOUtils.toByteArray(is));
             ServerSession session = new ServerSession(new Database(0, "lealone", null), null, 0);
             LealoneConfig lealoneConfig = (LealoneConfig) session.parseStatement(sql);
             session.close();
-            return lealoneConfig.getConfig();
+            Config config = lealoneConfig.getConfig();
+            setBaseDir(config);
+            logger.info("Config file: {}", new File(url.getFile()).getAbsolutePath().replace('\\', '/'));
+            return config;
         } catch (Exception e) {
             throw new ConfigException("Invalid config", e);
         }
@@ -395,19 +414,6 @@ public class Lealone {
         long t1 = System.currentTimeMillis();
         LealoneDatabase.getInstance();
         logger.info("Init lealone database: " + (System.currentTimeMillis() - t1) + " ms");
-    }
-
-    private void initBaseDir() {
-        if (config.base_dir == null || config.base_dir.isEmpty())
-            throw new ConfigException("base_dir must be specified and not empty");
-        String baseDir;
-        try {
-            baseDir = new File(config.base_dir).getCanonicalPath();
-        } catch (IOException e) {
-            baseDir = new File(config.base_dir).getAbsolutePath();
-        }
-        SysProperties.setBaseDir(baseDir);
-        logger.info("Base dir: {}", baseDir.replace('\\', '/')); // 显示格式跟Loading config一样
     }
 
     // 严格按这样的顺序初始化: storage -> transaction -> sql -> protocol_server

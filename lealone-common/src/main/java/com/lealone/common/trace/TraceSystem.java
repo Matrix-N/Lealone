@@ -44,12 +44,6 @@ public class TraceSystem {
     public static final int DEBUG = 3;
 
     /**
-     * This trace level means all type of messages should be written, but
-     * instead of using the trace file the messages should be written to SLF4J.
-     */
-    public static final int ADAPTER = 4;
-
-    /**
      * The default level for system out trace messages.
      */
     public static final int DEFAULT_TRACE_LEVEL_SYSTEM_OUT = OFF;
