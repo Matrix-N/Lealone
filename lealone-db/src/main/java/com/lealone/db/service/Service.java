@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -198,13 +199,18 @@ public class Service extends SchemaObjectBase {
 
     private void genWorkflowCode(CodeAgent agent) {
         StringBuilder userPrompt = new StringBuilder();
+        userPrompt.append(agent.getPromptPrefix()).append("\n");
+        boolean first = true;
         for (SchemaObject so : schema.getAll(DbObjectType.SERVICE)) {
             if (!so.getName().equals(getName())) {
-                if (!userPrompt.isEmpty())
+                if (!first) {
+                    first = false;
                     userPrompt.append("、");
+                }
                 userPrompt.append(((Service) so).getImplementBy());
             }
         }
+
         userPrompt.append("是服务接口实现类可以直接创建局部对象，优先使用服务接口，为").append(getName());
         userPrompt.append("生成一个工作流。").append('\n');
         for (SchemaObject so : schema.getAll(DbObjectType.SERVICE)) {
@@ -228,9 +234,6 @@ public class Service extends SchemaObjectBase {
                 continue;
             String className = toClassName(t.getName());
             String fullName = t.getPackageName() + "." + className;
-            // userPrompt.append("以下是" + className //
-            // + "类，Model用findOne和findList,增加用insert：");
-
             userPrompt.append("以下是").append(className);
             userPrompt.append("类的源代码:\n");
             String code = t.getCode();
@@ -286,8 +289,15 @@ public class Service extends SchemaObjectBase {
         String javaCode = agent.generateJavaCode(userPrompt.toString());
         logger.info("Java code:\n{}", javaCode);
         compiler.setSource(getImplementBy(), javaCode);
-        implementClass = compiler.compile(getImplementBy());
-        writeFile(javaCode); // 编译成功再写
+        File classDir = getClassDir();
+        try {
+            URL[] urls = { classDir.toURI().toURL() };
+            compiler.setUrls(urls);
+            implementClass = compiler.compile(getImplementBy());
+            writeFile(javaCode); // 编译成功再写
+        } catch (Exception e) {
+            throw DbException.convert(e);
+        }
     }
 
     private static void toString(Method m, StringBuilder userPrompt) {

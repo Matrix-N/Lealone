@@ -93,7 +93,7 @@ public class SourceCompiler {
                 getClassFile(file);
             } else {
                 Path packageDir = Paths.get(file.getAbsolutePath());
-                getClassFile(packageDir);
+                getClassFile(file.getAbsolutePath().length(), packageDir);
             }
         }
     }
@@ -128,24 +128,20 @@ public class SourceCompiler {
     }
 
     // 处理目录
-    private static void getClassFile(Path packageDir) {
+    private static void getClassFile(int classDirLength, Path packageDir) {
         if (Files.exists(packageDir) && Files.isDirectory(packageDir)) {
             try {
                 Files.list(packageDir).forEach(p -> {
                     String name = p.toString();
                     if (name.endsWith(".class")) {
-                        name = name.substring(packageDir.toString().length() + 1);
-                        int pos = name.lastIndexOf('/');
-                        String className = name.substring(0, name.length() - 6).replace('/', '.');
-                        String packageName = name.substring(0, pos).replace('/', '.');
+                        name = name.substring(classDirLength + 1);
+                        int pos = name.lastIndexOf(File.separatorChar);
+                        String className = name.substring(0, name.length() - 6)
+                                .replace(File.separatorChar, '.');
+                        String packageName = name.substring(0, pos).replace(File.separatorChar, '.');
                         try {
-                            JavaFileObject jfo = new SimpleJavaFileObject(p.toUri(),
-                                    JavaFileObject.Kind.CLASS) {
-                                @Override
-                                public InputStream openInputStream() throws IOException {
-                                    return Files.newInputStream(p);
-                                }
-                            };
+                            JavaFileObject jfo = new SimpleClassFileObject(p.toUri(),
+                                    JavaFileObject.Kind.CLASS, p, className);
                             HashMap<String, JavaFileObject> map = jfos.get(packageName);
                             if (map == null) {
                                 map = new HashMap<>();
@@ -155,11 +151,28 @@ public class SourceCompiler {
                         } catch (Exception ignored) {
                         }
                     } else if (Files.isDirectory(p)) {
-                        getClassFile(p);
+                        getClassFile(classDirLength, p);
                     }
                 });
             } catch (IOException e) {
             }
+        }
+    }
+
+    private static class SimpleClassFileObject extends SimpleJavaFileObject {
+
+        private final Path classFile;
+        private final String className;
+
+        public SimpleClassFileObject(URI uri, Kind kind, Path classFile, String className) {
+            super(uri, kind);
+            this.classFile = classFile;
+            this.className = className;
+        }
+
+        @Override
+        public InputStream openInputStream() throws IOException {
+            return Files.newInputStream(classFile);
         }
     }
 
@@ -369,6 +382,9 @@ public class SourceCompiler {
             }
             if (file instanceof JarJavaFileObject jarFileObject) {
                 return jarFileObject.className;
+            }
+            if (file instanceof SimpleClassFileObject classFileObject) {
+                return classFileObject.className;
             }
             return super.inferBinaryName(location, file);
         }

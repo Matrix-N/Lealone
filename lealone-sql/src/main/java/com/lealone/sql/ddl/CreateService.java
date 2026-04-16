@@ -212,14 +212,16 @@ public class CreateService extends SchemaStatement {
         // 最后才创建执行器，此时implementBy肯定存在了
         // 如果没有提前生成ServiceExecutor才去使用JavaServiceExecutor
         if (!genCode) {
-            if (isJava && methodSize > 0 && !isAgentEnabled(session)
-                    && findServiceCodeGenerator(service) != null) {
-                ServiceCodeGenerator generator = getServiceCodeGenerator(service);
-                service.setExecutorCode(generator.genServiceExecutorCode(false));
-            } else {
-                ServiceExecutor executor = factory.createServiceExecutor(service);
-                service.setExecutor(executor);
-            }
+            // if (isJava && methodSize > 0 && !isAgentEnabled(session)
+            // && findServiceCodeGenerator(service) != null) {
+            // ServiceCodeGenerator generator = getServiceCodeGenerator(service);
+            // service.setExecutorCode(generator.genServiceExecutorCode(false));
+            // } else {
+            // ServiceExecutor executor = factory.createServiceExecutor(service);
+            // service.setExecutor(executor);
+            // }
+            ServiceExecutor executor = factory.createServiceExecutor(service);
+            service.setExecutor(executor);
         }
         return 0;
     }
