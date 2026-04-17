@@ -10,10 +10,10 @@ import com.lealone.db.result.LocalResult;
 import com.lealone.db.result.Result;
 import com.lealone.db.service.Service;
 import com.lealone.db.session.ServerSession;
+import com.lealone.db.table.Column;
 import com.lealone.db.value.Value;
-import com.lealone.db.value.ValueString;
 import com.lealone.sql.expression.Expression;
-import com.lealone.sql.expression.ValueExpression;
+import com.lealone.sql.expression.ExpressionColumn;
 
 /**
  * This class represents the statement
@@ -29,8 +29,9 @@ public class ExecuteService extends ExecuteStatement {
         super(session);
         this.serviceName = serviceName;
         this.methodName = methodName;
-        ValueExpression e = ValueExpression.get(ValueString.get(serviceName + "." + methodName + "()"));
-        resultExpressions = new Expression[] { e };
+        ExpressionColumn c = new ExpressionColumn(session.getDatabase(),
+                new Column(serviceName + "." + methodName + "()", Value.STRING));
+        resultExpressions = new Expression[] { c };
     }
 
     @Override
