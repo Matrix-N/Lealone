@@ -98,6 +98,7 @@ public class JavaAggregate extends com.lealone.sql.expression.aggregate.Aggregat
 
     @Override
     public void getSQL(StatementBuilder sql) {
+        sql.resetCount();
         sql.append(LealoneSQLParser.quoteIdentifier(userAggregate.getName())).append('(');
         for (Expression e : args) {
             sql.appendExceptFirst(", ");

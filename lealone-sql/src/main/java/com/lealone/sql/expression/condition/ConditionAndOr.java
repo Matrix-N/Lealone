@@ -58,22 +58,24 @@ public class ConditionAndOr extends Condition {
 
     @Override
     public void getSQL(StatementBuilder sql) {
-        sql.append('(');
         switch (andOrType) {
         case AND:
+            sql.enBegin();
             left.getSQL(sql);
             sql.append("\n    AND ");
             right.getSQL(sql);
+            sql.enEnd();
             break;
         case OR:
+            sql.append('(');
             left.getSQL(sql);
             sql.append("\n    OR ");
             right.getSQL(sql);
+            sql.append(')');
             break;
         default:
             throw DbException.getInternalError("andOrType=" + andOrType);
         }
-        sql.append(')');
     }
 
     @Override

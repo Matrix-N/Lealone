@@ -154,6 +154,7 @@ public abstract class Function extends Expression {
     }
 
     protected void appendArgs(StatementBuilder sql) {
+        sql.resetCount();
         for (Expression e : args) {
             sql.appendExceptFirst(", ");
             e.getSQL(sql);

@@ -75,7 +75,8 @@ public class ExpressionList extends Expression {
 
     @Override
     public void getSQL(StatementBuilder sql) {
-        sql.append('(');
+        sql.enBegin();
+        sql.resetCount();
         for (Expression e : list) {
             sql.appendExceptFirst(", ");
             e.getSQL(sql);
@@ -83,7 +84,7 @@ public class ExpressionList extends Expression {
         if (list.length == 1) {
             sql.append(',');
         }
-        sql.append(')');
+        sql.enEnd();
     }
 
     @Override

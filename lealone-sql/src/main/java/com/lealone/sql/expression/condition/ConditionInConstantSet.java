@@ -102,14 +102,16 @@ public class ConditionInConstantSet extends Condition {
 
     @Override
     public void getSQL(StatementBuilder sql) {
-        sql.append('(');
+        sql.enBegin();
         left.getSQL(sql);
         sql.append(" IN(");
+        sql.resetCount();
         for (Expression e : valueList) {
             sql.appendExceptFirst(", ");
             e.getSQL(sql);
         }
-        sql.append("))");
+        sql.append(')');
+        sql.enEnd();
     }
 
     @Override

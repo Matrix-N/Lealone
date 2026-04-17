@@ -92,7 +92,7 @@ public class Operation extends Expression {
 
     @Override
     public void getSQL(StatementBuilder sql) {
-        sql.append('(');
+        sql.enBegin();
         if (opType == NEGATE) {
             // don't remove the space, otherwise it might end up some thing like
             // --1 which is a line remark
@@ -107,7 +107,7 @@ public class Operation extends Expression {
             sql.append(' ');
             right.getSQL(sql);
         }
-        sql.append(')');
+        sql.enEnd();
     }
 
     private String getOperationToken() {

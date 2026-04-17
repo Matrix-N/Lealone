@@ -71,7 +71,8 @@ public class Update extends UpDel {
             Column c = columns.get(i);
             Expression e = expressionMap.get(c);
             buff.appendExceptFirst(",\n    ");
-            buff.append(c.getName()).append(" = ").append(e.getSQL());
+            buff.append(c.getName()).append(" = ");
+            e.getSQL(buff);
         }
         appendPlanSQL(buff);
         return buff.toString();

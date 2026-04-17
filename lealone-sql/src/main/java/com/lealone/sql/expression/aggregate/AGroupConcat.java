@@ -103,6 +103,7 @@ public class AGroupConcat extends BuiltInAggregate {
         on.getSQL(sql);
         if (groupConcatOrderList != null) {
             sql.append(" ORDER BY ");
+            sql.resetCount();
             for (SelectOrderBy o : groupConcatOrderList) {
                 sql.appendExceptFirst(", ");
                 o.expression.getSQL(sql);

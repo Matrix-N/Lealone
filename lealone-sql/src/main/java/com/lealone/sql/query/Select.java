@@ -789,8 +789,10 @@ public class Select extends Query {
                 } while (f != null);
             }
         }
+        buff.setEnclosed(false);
         if (condition != null) {
-            buff.append("\nWHERE ").append(StringUtils.unEnclose(condition.getSQL()));
+            buff.append("\nWHERE ");
+            condition.getSQL(buff);
         }
         if (groupIndex != null) {
             buff.append("\nGROUP BY ");
@@ -799,7 +801,7 @@ public class Select extends Query {
                 Expression g = exprList[gi];
                 g = g.getNonAliasExpression();
                 buff.appendExceptFirst(", ");
-                buff.append(StringUtils.unEnclose(g.getSQL()));
+                g.getSQL(buff);
             }
         }
         if (group != null) {
@@ -807,7 +809,7 @@ public class Select extends Query {
             buff.resetCount();
             for (Expression g : group) {
                 buff.appendExceptFirst(", ");
-                buff.append(StringUtils.unEnclose(g.getSQL()));
+                g.getSQL(buff);
             }
         }
 
@@ -816,10 +818,12 @@ public class Select extends Query {
             // in this case the query is not run directly, just getPlanSQL is
             // called
             Expression h = having;
-            buff.append("\nHAVING ").append(StringUtils.unEnclose(h.getSQL()));
+            buff.append("\nHAVING ");
+            h.getSQL(buff);
         } else if (havingIndex >= 0) {
             Expression h = exprList[havingIndex];
-            buff.append("\nHAVING ").append(StringUtils.unEnclose(h.getSQL()));
+            buff.append("\nHAVING ");
+            h.getSQL(buff);
         }
         if (sort != null) {
             buff.append("\nORDER BY ").append(sort.getSQL(exprList, visibleColumnCount));
@@ -829,17 +833,20 @@ public class Select extends Query {
             buff.resetCount();
             for (SelectOrderBy o : orderList) {
                 buff.appendExceptFirst(", ");
-                buff.append(StringUtils.unEnclose(o.getSQL()));
+                o.getSQL(buff);
             }
         }
         if (limitExpr != null) {
-            buff.append("\nLIMIT ").append(StringUtils.unEnclose(limitExpr.getSQL()));
+            buff.append("\nLIMIT ");
+            limitExpr.getSQL(buff);
             if (offsetExpr != null) {
-                buff.append(" OFFSET ").append(StringUtils.unEnclose(offsetExpr.getSQL()));
+                buff.append(" OFFSET ");
+                offsetExpr.getSQL(buff);
             }
         }
         if (sampleSizeExpr != null) {
-            buff.append("\nSAMPLE_SIZE ").append(StringUtils.unEnclose(sampleSizeExpr.getSQL()));
+            buff.append("\nSAMPLE_SIZE ");
+            sampleSizeExpr.getSQL(buff);
         }
         if (isForUpdate) {
             buff.append("\nFOR UPDATE");

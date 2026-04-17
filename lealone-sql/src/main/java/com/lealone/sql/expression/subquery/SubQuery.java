@@ -91,9 +91,9 @@ public class SubQuery extends Expression {
 
     @Override
     public void getSQL(StatementBuilder sql) {
-        sql.append('(');
+        sql.enBegin();
         sql.append(query.getPlanSQL());
-        sql.append(')');
+        sql.enEnd();
     }
 
     private Expression getExpression() {

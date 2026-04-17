@@ -86,7 +86,7 @@ public class CompareLike extends Condition {
 
     @Override
     public void getSQL(StatementBuilder sql) {
-        sql.append('(');
+        sql.enBegin();
         if (regexp) {
             left.getSQL(sql);
             sql.append(" REGEXP ");
@@ -100,7 +100,7 @@ public class CompareLike extends Condition {
                 escape.getSQL(sql);
             }
         }
-        sql.append(')');
+        sql.enEnd();
     }
 
     @Override

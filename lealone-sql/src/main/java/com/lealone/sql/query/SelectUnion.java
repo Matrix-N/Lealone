@@ -10,7 +10,7 @@ import java.util.HashSet;
 import java.util.List;
 
 import com.lealone.common.exceptions.DbException;
-import com.lealone.common.util.StringUtils;
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.SysProperties;
 import com.lealone.db.api.ErrorCode;
 import com.lealone.db.async.AsyncResultHandler;
@@ -178,7 +178,7 @@ public class SelectUnion extends Query implements ISelectUnion {
 
     @Override
     public String getPlanSQL() {
-        StringBuilder buff = new StringBuilder();
+        StatementBuilder buff = new StatementBuilder();
         buff.append('(').append(left.getPlanSQL()).append(')');
         switch (unionType) {
         case UNION_ALL:
@@ -201,18 +201,23 @@ public class SelectUnion extends Query implements ISelectUnion {
         if (sort != null) {
             buff.append("\nORDER BY ").append(sort.getSQL(exprList, exprList.length));
         }
+        buff.setEnclosed(false);
         if (limitExpr != null) {
-            buff.append("\nLIMIT ").append(StringUtils.unEnclose(limitExpr.getSQL()));
+            buff.append("\nLIMIT ");
+            limitExpr.getSQL(buff);
             if (offsetExpr != null) {
-                buff.append("\nOFFSET ").append(StringUtils.unEnclose(offsetExpr.getSQL()));
+                buff.append("\nOFFSET ");
+                offsetExpr.getSQL(buff);
             }
         }
         if (sampleSizeExpr != null) {
-            buff.append("\nSAMPLE_SIZE ").append(StringUtils.unEnclose(sampleSizeExpr.getSQL()));
+            buff.append("\nSAMPLE_SIZE ");
+            sampleSizeExpr.getSQL(buff);
         }
         if (isForUpdate) {
             buff.append("\nFOR UPDATE");
         }
+        buff.setEnclosed(true);
         return buff.toString();
     }
 

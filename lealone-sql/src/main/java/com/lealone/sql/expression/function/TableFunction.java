@@ -63,6 +63,7 @@ public class TableFunction extends BuiltInFunction {
 
     @Override
     public void getSQL(StatementBuilder sql) {
+        sql.resetCount();
         sql.append(getName()).append('(');
         int i = 0;
         for (Expression e : args) {

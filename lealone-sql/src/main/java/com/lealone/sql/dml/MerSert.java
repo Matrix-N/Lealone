@@ -114,7 +114,7 @@ public abstract class MerSert extends ManipulationStatement {
                     if (e == null) {
                         buff.append("DEFAULT");
                     } else {
-                        buff.append(e.getSQL());
+                        e.getSQL(buff);
                     }
                 }
                 buff.append(')');

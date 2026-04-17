@@ -5,6 +5,8 @@
  */
 package com.lealone.sql.expression;
 
+import com.lealone.common.util.StatementBuilder;
+
 /**
  * Describes one element of the ORDER BY clause of a query.
  */
@@ -37,12 +39,11 @@ public class SelectOrderBy {
      */
     public boolean nullsLast;
 
-    public String getSQL() {
-        StringBuilder buff = new StringBuilder();
+    public void getSQL(StatementBuilder buff) {
         if (expression != null) {
-            buff.append(expression.getSQL());
+            expression.getSQL(buff);
         } else {
-            buff.append(columnIndexExpr.getSQL());
+            columnIndexExpr.getSQL(buff);
         }
         if (descending) {
             buff.append(" DESC");
@@ -52,6 +53,5 @@ public class SelectOrderBy {
         } else if (nullsLast) {
             buff.append(" NULLS LAST");
         }
-        return buff.toString();
     }
 }

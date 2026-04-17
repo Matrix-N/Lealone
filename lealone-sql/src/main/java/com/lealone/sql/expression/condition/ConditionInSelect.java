@@ -129,7 +129,7 @@ public class ConditionInSelect extends Condition {
 
     @Override
     public void getSQL(StatementBuilder sql) {
-        sql.append('(');
+        sql.enBegin();
         left.getSQL(sql);
         sql.append(' ');
         if (all) {
@@ -140,7 +140,8 @@ public class ConditionInSelect extends Condition {
             else
                 sql.append("IN");
         }
-        sql.append("(\n").append(StringUtils.indent(query.getPlanSQL(), 4, false)).append("))");
+        sql.append("(\n").append(StringUtils.indent(query.getPlanSQL(), 4, false)).append(')');
+        sql.enEnd();
     }
 
     @Override

@@ -132,7 +132,7 @@ public class Comparison extends Condition {
 
     @Override
     public void getSQL(StatementBuilder sql) {
-        sql.append('(');
+        sql.enBegin();
         switch (compareType) {
         case IS_NULL:
             left.getSQL(sql);
@@ -149,7 +149,7 @@ public class Comparison extends Condition {
             sql.append(" ");
             right.getSQL(sql);
         }
-        sql.append(')');
+        sql.enEnd();
     }
 
     /**

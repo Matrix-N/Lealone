@@ -10,7 +10,6 @@ import java.util.Collections;
 import java.util.Comparator;
 
 import com.lealone.common.util.StatementBuilder;
-import com.lealone.common.util.StringUtils;
 import com.lealone.common.util.Utils;
 import com.lealone.db.Database;
 import com.lealone.db.SysProperties;
@@ -94,13 +93,15 @@ public class SortOrder implements Comparator<Value[]> {
      */
     public String getSQL(IExpression[] list, int visible) {
         StatementBuilder buff = new StatementBuilder();
+        buff.setEnclosed(false);
         int i = 0;
         for (int idx : queryColumnIndexes) {
             buff.appendExceptFirst(", ");
             if (idx < visible) {
                 buff.append(idx + 1);
             } else {
-                buff.append('=').append(StringUtils.unEnclose(list[idx].getSQL()));
+                buff.append('=');
+                list[idx].getSQL(buff);
             }
             int type = sortTypes[i++];
             if ((type & DESCENDING) != 0) {
