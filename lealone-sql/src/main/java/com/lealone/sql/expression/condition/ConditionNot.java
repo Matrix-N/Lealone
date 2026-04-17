@@ -5,6 +5,7 @@
  */
 package com.lealone.sql.expression.condition;
 
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.session.ServerSession;
 import com.lealone.db.value.Value;
 import com.lealone.db.value.ValueNull;
@@ -61,8 +62,10 @@ public class ConditionNot extends Condition {
     }
 
     @Override
-    public String getSQL() {
-        return "(NOT " + condition.getSQL() + ")";
+    public void getSQL(StatementBuilder sql) {
+        sql.append("(NOT ");
+        condition.getSQL(sql);
+        sql.append(')');
     }
 
     @Override

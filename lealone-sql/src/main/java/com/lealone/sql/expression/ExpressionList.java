@@ -74,16 +74,16 @@ public class ExpressionList extends Expression {
     }
 
     @Override
-    public String getSQL() {
-        StatementBuilder buff = new StatementBuilder("(");
+    public void getSQL(StatementBuilder sql) {
+        sql.append('(');
         for (Expression e : list) {
-            buff.appendExceptFirst(", ");
-            buff.append(e.getSQL());
+            sql.appendExceptFirst(", ");
+            e.getSQL(sql);
         }
         if (list.length == 1) {
-            buff.append(',');
+            sql.append(',');
         }
-        return buff.append(')').toString();
+        sql.append(')');
     }
 
     @Override

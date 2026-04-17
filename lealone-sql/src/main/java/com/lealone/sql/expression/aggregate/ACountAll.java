@@ -6,6 +6,7 @@
 package com.lealone.sql.expression.aggregate;
 
 import com.lealone.common.exceptions.DbException;
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.session.ServerSession;
 import com.lealone.db.value.Value;
 import com.lealone.db.value.ValueLong;
@@ -39,8 +40,8 @@ public class ACountAll extends BuiltInAggregate {
     }
 
     @Override
-    public String getSQL() {
-        return "COUNT(*)";
+    public void getSQL(StatementBuilder sql) {
+        sql.append("COUNT(*)");
     }
 
     public class AggregateDataCountAll extends AggregateData {
@@ -66,6 +67,16 @@ public class ACountAll extends BuiltInAggregate {
 
         @Override
         Value getValue(ServerSession session) {
+            return ValueLong.get(count);
+        }
+
+        @Override
+        void merge(ServerSession session, Value v) {
+            count += v.getLong();
+        }
+
+        @Override
+        Value getMergedValue(ServerSession session) {
             return ValueLong.get(count);
         }
     }

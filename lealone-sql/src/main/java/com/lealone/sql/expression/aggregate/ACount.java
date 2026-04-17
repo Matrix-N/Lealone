@@ -5,6 +5,7 @@
  */
 package com.lealone.sql.expression.aggregate;
 
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.session.ServerSession;
 import com.lealone.db.util.ValueHashMap;
 import com.lealone.db.value.Value;
@@ -36,8 +37,8 @@ public class ACount extends BuiltInAggregate {
     }
 
     @Override
-    public String getSQL() {
-        return getSQL("COUNT");
+    public void getSQL(StatementBuilder sql) {
+        getSQL("COUNT", sql);
     }
 
     public class AggregateDataCount extends AggregateData {
@@ -88,6 +89,16 @@ public class ACount extends BuiltInAggregate {
                     count = 0;
                 }
             }
+            return ValueLong.get(count);
+        }
+
+        @Override
+        void merge(ServerSession session, Value v) {
+            count += v.getLong();
+        }
+
+        @Override
+        Value getMergedValue(ServerSession session) {
             return ValueLong.get(count);
         }
     }

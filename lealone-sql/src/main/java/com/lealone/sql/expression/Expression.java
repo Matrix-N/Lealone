@@ -11,6 +11,7 @@ import java.sql.SQLException;
 import java.util.Set;
 
 import com.lealone.common.exceptions.DbException;
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.common.util.StringUtils;
 import com.lealone.db.Database;
 import com.lealone.db.DbObject;
@@ -20,9 +21,11 @@ import com.lealone.db.table.Column;
 import com.lealone.db.value.DataType;
 import com.lealone.db.value.Value;
 import com.lealone.db.value.ValueArray;
+import com.lealone.sql.expression.visitor.CalculateVisitor;
 import com.lealone.sql.expression.visitor.ExpressionVisitor;
 import com.lealone.sql.expression.visitor.ExpressionVisitorFactory;
 import com.lealone.sql.expression.visitor.MapColumnsVisitor;
+import com.lealone.sql.expression.visitor.MergeAggregateVisitor;
 import com.lealone.sql.expression.visitor.UpdateAggregateVisitor;
 import com.lealone.sql.optimizer.ColumnResolver;
 import com.lealone.sql.optimizer.TableFilter;
@@ -114,7 +117,14 @@ public abstract class Expression implements com.lealone.sql.IExpression {
      * @return the SQL statement
      */
     @Override
-    public abstract String getSQL();
+    public abstract void getSQL(StatementBuilder sql);
+
+    @Override
+    public String getSQL() {
+        StatementBuilder sql = new StatementBuilder();
+        getSQL(sql);
+        return sql.toString();
+    }
 
     /**
      * Update an aggregate value.
@@ -356,6 +366,18 @@ public abstract class Expression implements com.lealone.sql.IExpression {
         } catch (SQLException e) {
             throw DbException.convert(e);
         }
+    }
+
+    public void mergeAggregate(ServerSession session, Value v) {
+        accept(new MergeAggregateVisitor(session, v));
+    }
+
+    public void calculate(Calculator calculator) {
+        accept(new CalculateVisitor(calculator));
+    }
+
+    public Value getMergedValue(ServerSession session) {
+        return getValue(session);
     }
 
     @SuppressWarnings("unchecked")

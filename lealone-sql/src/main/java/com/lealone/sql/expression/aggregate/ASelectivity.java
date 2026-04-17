@@ -5,11 +5,13 @@
  */
 package com.lealone.sql.expression.aggregate;
 
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.Constants;
 import com.lealone.db.session.ServerSession;
 import com.lealone.db.util.IntIntHashMap;
 import com.lealone.db.value.Value;
 import com.lealone.db.value.ValueInt;
+import com.lealone.db.value.ValueNull;
 import com.lealone.sql.expression.Expression;
 import com.lealone.sql.query.Select;
 
@@ -35,8 +37,8 @@ public class ASelectivity extends BuiltInAggregate {
     }
 
     @Override
-    public String getSQL() {
-        return getSQL("SELECTIVITY");
+    public void getSQL(StatementBuilder sql) {
+        getSQL("SELECTIVITY", sql);
     }
 
     // 会忽略distinct
@@ -46,6 +48,7 @@ public class ASelectivity extends BuiltInAggregate {
         private long count;
         private IntIntHashMap distinctHashes;
         private double m2;
+        private Value value;
 
         @Override
         public void add(ServerSession session, Value v) {
@@ -77,6 +80,26 @@ public class ASelectivity extends BuiltInAggregate {
             s = s <= 0 ? 1 : s > 100 ? 100 : s;
             Value v = ValueInt.get(s);
             return v.convertTo(dataType);
+        }
+
+        @Override
+        void merge(ServerSession session, Value v) {
+            count++;
+            if (value == null) {
+                value = v.convertTo(dataType);
+            } else {
+                v = v.convertTo(value.getType());
+                value = value.add(v);
+            }
+        }
+
+        @Override
+        Value getMergedValue(ServerSession session) {
+            Value v = null;
+            if (value != null) {
+                v = BuiltInAggregate.divide(value, count);
+            }
+            return v == null ? ValueNull.INSTANCE : v.convertTo(dataType);
         }
     }
 }

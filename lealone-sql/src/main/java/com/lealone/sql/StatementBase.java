@@ -79,6 +79,9 @@ public abstract class StatementBase implements PreparedSQLStatement, ParsedSQLSt
         modificationMetaId = session.getDatabase().getModificationMetaId();
     }
 
+    public void setLocal(boolean local) {
+    }
+
     @Override
     public ServerSession getSession() {
         return session;

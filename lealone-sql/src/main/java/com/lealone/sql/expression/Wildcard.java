@@ -6,6 +6,7 @@
 package com.lealone.sql.expression;
 
 import com.lealone.common.exceptions.DbException;
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.common.util.StringUtils;
 import com.lealone.db.api.ErrorCode;
 import com.lealone.db.session.ServerSession;
@@ -79,11 +80,11 @@ public class Wildcard extends Expression {
     }
 
     @Override
-    public String getSQL() {
+    public void getSQL(StatementBuilder sql) {
         if (table == null) {
-            return "*";
+            sql.append('*');
         }
-        return StringUtils.quoteIdentifier(table) + ".*";
+        sql.append(StringUtils.quoteIdentifier(table)).append(".*");
     }
 
     @Override

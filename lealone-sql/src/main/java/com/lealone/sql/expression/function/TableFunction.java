@@ -62,15 +62,15 @@ public class TableFunction extends BuiltInFunction {
     }
 
     @Override
-    public String getSQL() {
-        StatementBuilder buff = new StatementBuilder(getName());
-        buff.append('(');
+    public void getSQL(StatementBuilder sql) {
+        sql.append(getName()).append('(');
         int i = 0;
         for (Expression e : args) {
-            buff.appendExceptFirst(", ");
-            buff.append(columnList[i++].getCreateSQL()).append('=').append(e.getSQL());
+            sql.appendExceptFirst(", ");
+            sql.append(columnList[i++].getCreateSQL()).append('=');
+            e.getSQL(sql);
         }
-        return buff.append(')').toString();
+        sql.append(')');
     }
 
     @Override

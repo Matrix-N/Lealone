@@ -7,6 +7,7 @@ package com.lealone.sql.expression;
 
 import com.lealone.common.exceptions.DbException;
 import com.lealone.common.util.MathUtils;
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.Mode;
 import com.lealone.db.session.ServerSession;
 import com.lealone.db.value.DataType;
@@ -90,18 +91,23 @@ public class Operation extends Expression {
     }
 
     @Override
-    public String getSQL() {
-        String sql;
+    public void getSQL(StatementBuilder sql) {
+        sql.append('(');
         if (opType == NEGATE) {
             // don't remove the space, otherwise it might end up some thing like
             // --1 which is a line remark
-            sql = "- " + left.getSQL();
+            sql.append("- ");
+            left.getSQL(sql);
         } else {
             // don't remove the space, otherwise it might end up some thing like
             // --1 which is a line remark
-            sql = left.getSQL() + " " + getOperationToken() + " " + right.getSQL();
+            left.getSQL(sql);
+            sql.append(' ');
+            sql.append(getOperationToken());
+            sql.append(' ');
+            right.getSQL(sql);
         }
-        return "(" + sql + ")";
+        sql.append(')');
     }
 
     private String getOperationToken() {

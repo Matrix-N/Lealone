@@ -8,6 +8,7 @@ package com.lealone.sql.expression.aggregate;
 import java.util.HashMap;
 
 import com.lealone.common.exceptions.DbException;
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.common.util.StringUtils;
 import com.lealone.db.api.ErrorCode;
 import com.lealone.db.index.Index;
@@ -17,8 +18,10 @@ import com.lealone.db.session.ServerSession;
 import com.lealone.db.table.Column;
 import com.lealone.db.table.Table;
 import com.lealone.db.value.Value;
+import com.lealone.db.value.ValueDouble;
 import com.lealone.db.value.ValueLong;
 import com.lealone.db.value.ValueNull;
+import com.lealone.sql.expression.Calculator;
 import com.lealone.sql.expression.Expression;
 import com.lealone.sql.expression.ExpressionColumn;
 import com.lealone.sql.expression.visitor.ExpressionVisitor;
@@ -132,6 +135,15 @@ public abstract class BuiltInAggregate extends Aggregate {
     }
 
     @Override
+    public void mergeAggregate(ServerSession session, Value v) {
+        AggregateData data = getAggregateData();
+        if (data == null) {
+            return;
+        }
+        data.merge(session, v);
+    }
+
+    @Override
     public Value getValue(ServerSession session) {
         if (select.isQuickAggregateQuery()) {
             switch (type) {
@@ -172,6 +184,81 @@ public abstract class BuiltInAggregate extends Aggregate {
             data = createAggregateData();
         }
         return data;
+    }
+
+    @Override
+    public Value getMergedValue(ServerSession session) {
+        return getFinalAggregateData().getMergedValue(session);
+    }
+
+    @Override
+    public void calculate(Calculator calculator) {
+        switch (type) {
+        case BuiltInAggregate.COUNT_ALL:
+        case BuiltInAggregate.COUNT:
+        case BuiltInAggregate.MIN:
+        case BuiltInAggregate.MAX:
+        case BuiltInAggregate.SUM:
+        case BuiltInAggregate.BOOL_AND:
+        case BuiltInAggregate.BOOL_OR:
+        case BuiltInAggregate.BIT_AND:
+        case BuiltInAggregate.BIT_OR:
+            break;
+        case BuiltInAggregate.AVG: {
+            int i = calculator.getIndex();
+            Value v = divide(calculator.getValue(i + 1), calculator.getValue(i).getLong());
+            calculator.addResultValue(v);
+            calculator.addIndex(2);
+            break;
+        }
+        case BuiltInAggregate.STDDEV_POP: {
+            int i = calculator.getIndex();
+            long count = calculator.getValue(i).getLong();
+            double sum1 = calculator.getValue(i + 1).getDouble();
+            double sum2 = calculator.getValue(i + 2).getDouble();
+            double result = Math.sqrt(sum2 / count - (sum1 / count) * (sum1 / count));
+            calculator.addResultValue(ValueDouble.get(result));
+            calculator.addIndex(3);
+            break;
+        }
+        // 见:http://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+        case BuiltInAggregate.STDDEV_SAMP: {
+            int i = calculator.getIndex();
+            long count = calculator.getValue(i).getLong();
+            double sum1 = calculator.getValue(i + 1).getDouble();
+            double sum2 = calculator.getValue(i + 2).getDouble();
+            double result = Math.sqrt((sum2 - (sum1 * sum1 / count)) / (count - 1));
+            calculator.addResultValue(ValueDouble.get(result));
+            calculator.addIndex(3);
+            break;
+        }
+        case BuiltInAggregate.VAR_POP: {
+            int i = calculator.getIndex();
+            long count = calculator.getValue(i).getLong();
+            double sum1 = calculator.getValue(i + 1).getDouble();
+            double sum2 = calculator.getValue(i + 2).getDouble();
+            double result = sum2 / count - (sum1 / count) * (sum1 / count);
+            calculator.addResultValue(ValueDouble.get(result));
+            calculator.addIndex(3);
+            break;
+        }
+        case BuiltInAggregate.VAR_SAMP: {
+            int i = calculator.getIndex();
+            long count = calculator.getValue(i).getLong();
+            double sum1 = calculator.getValue(i + 1).getDouble();
+            double sum2 = calculator.getValue(i + 2).getDouble();
+            double result = (sum2 - (sum1 * sum1 / count)) / (count - 1);
+            calculator.addResultValue(ValueDouble.get(result));
+            calculator.addIndex(3);
+            break;
+        }
+        case BuiltInAggregate.HISTOGRAM:
+        case BuiltInAggregate.SELECTIVITY:
+        case BuiltInAggregate.GROUP_CONCAT:
+            break;
+        default:
+            DbException.throwInternalError("type=" + type);
+        }
     }
 
     private Index getColumnIndex() {
@@ -216,11 +303,15 @@ public abstract class BuiltInAggregate extends Aggregate {
         return a;
     }
 
-    protected String getSQL(String text) {
+    protected void getSQL(String text, StatementBuilder sql) {
         if (distinct) {
-            return text + "(DISTINCT " + on.getSQL() + ")";
+            sql.append(text).append("(DISTINCT ");
+            on.getSQL(sql);
+            sql.append(')');
+        } else {
+            sql.append(text);
+            sql.append(StringUtils.enclose(on.getSQL()));
         }
-        return text + StringUtils.enclose(on.getSQL());
     }
 
     @Override

@@ -7,6 +7,7 @@ package com.lealone.sql;
 
 import java.util.Set;
 
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.session.Session;
 import com.lealone.db.value.Value;
 
@@ -22,6 +23,8 @@ public interface IExpression {
     int getType();
 
     String getSQL();
+
+    void getSQL(StatementBuilder sql);
 
     IExpression optimize(Session session);
 

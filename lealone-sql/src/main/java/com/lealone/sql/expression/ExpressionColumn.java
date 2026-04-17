@@ -8,6 +8,7 @@ package com.lealone.sql.expression;
 import java.util.HashMap;
 
 import com.lealone.common.exceptions.DbException;
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.Database;
 import com.lealone.db.LealoneDatabase;
 import com.lealone.db.api.ErrorCode;
@@ -80,22 +81,32 @@ public class ExpressionColumn extends Expression {
 
     @Override
     public String getSQL() {
-        String sql;
-        boolean quote = getDatabase().getSettings().databaseToUpper;
+        if (schemaName != null || tableAlias != null)
+            return super.getSQL();
         if (column != null) {
-            sql = column.getSQL();
+            return column.getSQL();
         } else {
-            sql = quote ? LealoneSQLParser.quoteIdentifier(columnName) : columnName;
+            boolean quote = getDatabase().getSettings().databaseToUpper;
+            return quote ? LealoneSQLParser.quoteIdentifier(columnName) : columnName;
+        }
+    }
+
+    @Override
+    public void getSQL(StatementBuilder sql) {
+        boolean quote = getDatabase().getSettings().databaseToUpper;
+        if (schemaName != null) {
+            String s = quote ? LealoneSQLParser.quoteIdentifier(schemaName) : schemaName;
+            sql.append(s).append('.');
         }
         if (tableAlias != null) {
             String a = quote ? LealoneSQLParser.quoteIdentifier(tableAlias) : tableAlias;
-            sql = a + "." + sql;
+            sql.append(a).append('.');
         }
-        if (schemaName != null) {
-            String s = quote ? LealoneSQLParser.quoteIdentifier(schemaName) : schemaName;
-            sql = s + "." + sql;
+        if (column != null) {
+            sql.append(column.getSQL());
+        } else {
+            sql.append(quote ? LealoneSQLParser.quoteIdentifier(columnName) : columnName);
         }
-        return sql;
     }
 
     public TableFilter getTableFilter() {

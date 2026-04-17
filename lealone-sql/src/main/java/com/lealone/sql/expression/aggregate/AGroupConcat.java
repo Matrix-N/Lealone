@@ -95,26 +95,27 @@ public class AGroupConcat extends BuiltInAggregate {
     }
 
     @Override
-    public String getSQL() {
-        StatementBuilder buff = new StatementBuilder("GROUP_CONCAT(");
+    public void getSQL(StatementBuilder sql) {
+        sql.append("GROUP_CONCAT(");
         if (distinct) {
-            buff.append("DISTINCT ");
+            sql.append("DISTINCT ");
         }
-        buff.append(on.getSQL());
+        on.getSQL(sql);
         if (groupConcatOrderList != null) {
-            buff.append(" ORDER BY ");
+            sql.append(" ORDER BY ");
             for (SelectOrderBy o : groupConcatOrderList) {
-                buff.appendExceptFirst(", ");
-                buff.append(o.expression.getSQL());
+                sql.appendExceptFirst(", ");
+                o.expression.getSQL(sql);
                 if (o.descending) {
-                    buff.append(" DESC");
+                    sql.append(" DESC");
                 }
             }
         }
         if (groupConcatSeparator != null) {
-            buff.append(" SEPARATOR ").append(groupConcatSeparator.getSQL());
+            sql.append(" SEPARATOR ");
+            groupConcatSeparator.getSQL(sql);
         }
-        return buff.append(')').toString();
+        sql.append(')');
     }
 
     @Override
@@ -209,6 +210,19 @@ public class AGroupConcat extends BuiltInAggregate {
             for (Value v : distinctValues.keys()) {
                 add(session, v, false);
             }
+        }
+
+        @Override
+        void merge(ServerSession session, Value v) {
+            if (list == null) {
+                list = new ArrayList<>();
+            }
+            list.add(v);
+        }
+
+        @Override
+        Value getMergedValue(ServerSession session) {
+            return null;
         }
     }
 }

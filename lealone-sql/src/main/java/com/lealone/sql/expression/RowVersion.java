@@ -9,23 +9,29 @@ import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.session.ServerSession;
 import com.lealone.db.value.Value;
 import com.lealone.db.value.ValueInt;
-import com.lealone.sql.StatementBase;
 import com.lealone.sql.expression.visitor.ExpressionVisitor;
+import com.lealone.sql.optimizer.ColumnResolver;
 
 /**
- * Represents the ROWNUM function.
+ * Represents the ROW_VERSION function.
  */
-public class Rownum extends Expression {
+public class RowVersion extends Rownum {
 
-    private final StatementBase prepared;
+    private ColumnResolver resolver;
 
-    public Rownum(StatementBase prepared) {
-        this.prepared = prepared;
+    public RowVersion() {
+        super(null);
+    }
+
+    @Override
+    public void mapColumns(ColumnResolver resolver, int level) {
+        if (this.resolver == null)
+            this.resolver = resolver;
     }
 
     @Override
     public Value getValue(ServerSession session) {
-        return ValueInt.get(prepared.getCurrentRowNumber());
+        return ValueInt.get(resolver.getRowVersion());
     }
 
     @Override
@@ -55,7 +61,7 @@ public class Rownum extends Expression {
 
     @Override
     public String getSQL() {
-        return "ROWNUM()";
+        return "ROW_VERSION()";
     }
 
     @Override

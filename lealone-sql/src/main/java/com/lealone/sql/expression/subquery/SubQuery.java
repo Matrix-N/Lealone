@@ -8,6 +8,7 @@ package com.lealone.sql.expression.subquery;
 import java.util.ArrayList;
 
 import com.lealone.common.exceptions.DbException;
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.api.ErrorCode;
 import com.lealone.db.result.Result;
 import com.lealone.db.session.ServerSession;
@@ -89,8 +90,10 @@ public class SubQuery extends Expression {
     }
 
     @Override
-    public String getSQL() {
-        return "(" + query.getPlanSQL() + ")";
+    public void getSQL(StatementBuilder sql) {
+        sql.append('(');
+        sql.append(query.getPlanSQL());
+        sql.append(')');
     }
 
     private Expression getExpression() {

@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 import com.lealone.common.exceptions.DbException;
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.Database;
 import com.lealone.db.SysProperties;
 import com.lealone.db.session.ServerSession;
@@ -130,19 +131,25 @@ public class Comparison extends Condition {
     }
 
     @Override
-    public String getSQL() {
-        String sql;
+    public void getSQL(StatementBuilder sql) {
+        sql.append('(');
         switch (compareType) {
         case IS_NULL:
-            sql = left.getSQL() + " IS NULL";
+            left.getSQL(sql);
+            sql.append(" IS NULL");
             break;
         case IS_NOT_NULL:
-            sql = left.getSQL() + " IS NOT NULL";
+            left.getSQL(sql);
+            sql.append(" IS NOT NULL");
             break;
         default:
-            sql = left.getSQL() + " " + getCompareOperator(compareType) + " " + right.getSQL();
+            left.getSQL(sql);
+            sql.append(" ");
+            sql.append(getCompareOperator(compareType));
+            sql.append(" ");
+            right.getSQL(sql);
         }
-        return "(" + sql + ")";
+        sql.append(')');
     }
 
     /**

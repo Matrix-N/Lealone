@@ -8,6 +8,8 @@ package com.lealone.sql.expression.aggregate;
 import java.util.Arrays;
 import java.util.Comparator;
 
+import com.lealone.common.exceptions.DbException;
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.Constants;
 import com.lealone.db.session.ServerSession;
 import com.lealone.db.util.ValueHashMap;
@@ -39,8 +41,8 @@ public class AHistogram extends BuiltInAggregate {
     }
 
     @Override
-    public String getSQL() {
-        return getSQL("HISTOGRAM");
+    public void getSQL(StatementBuilder sql) {
+        getSQL("HISTOGRAM", sql);
     }
 
     // 会忽略distinct
@@ -87,6 +89,16 @@ public class AHistogram extends BuiltInAggregate {
             });
             Value v = ValueArray.get(values);
             return v.convertTo(dataType);
+        }
+
+        @Override
+        void merge(ServerSession session, Value v) {
+            throw DbException.getUnsupportedException("merge");
+        }
+
+        @Override
+        Value getMergedValue(ServerSession session) {
+            throw DbException.getUnsupportedException("getMergedValue");
         }
     }
 }

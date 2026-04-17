@@ -31,6 +31,7 @@ public class StatementBuilder {
 
     private final StringBuilder builder = new StringBuilder();
     private int index;
+    private boolean distributed;
 
     /**
      * Create a new builder.
@@ -46,6 +47,14 @@ public class StatementBuilder {
      */
     public StatementBuilder(String string) {
         builder.append(string);
+    }
+
+    public boolean isDistributed() {
+        return distributed;
+    }
+
+    public void setDistributed(boolean distributed) {
+        this.distributed = distributed;
     }
 
     /**

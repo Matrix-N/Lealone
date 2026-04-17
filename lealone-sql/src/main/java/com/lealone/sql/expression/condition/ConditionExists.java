@@ -5,6 +5,7 @@
  */
 package com.lealone.sql.expression.condition;
 
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.common.util.StringUtils;
 import com.lealone.db.result.Result;
 import com.lealone.db.session.ServerSession;
@@ -45,8 +46,8 @@ public class ConditionExists extends Condition {
     }
 
     @Override
-    public String getSQL() {
-        return "EXISTS(\n" + StringUtils.indent(query.getPlanSQL(), 4, false) + ")";
+    public void getSQL(StatementBuilder sql) {
+        sql.append("EXISTS(\n").append(StringUtils.indent(query.getPlanSQL(), 4, false)).append(')');
     }
 
     @Override

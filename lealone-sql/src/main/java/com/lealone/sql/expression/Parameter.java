@@ -6,6 +6,7 @@
 package com.lealone.sql.expression;
 
 import com.lealone.common.exceptions.DbException;
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.api.ErrorCode;
 import com.lealone.db.command.CommandParameter;
 import com.lealone.db.session.ServerSession;
@@ -30,8 +31,8 @@ public class Parameter extends Expression implements CommandParameter {
     }
 
     @Override
-    public String getSQL() {
-        return "?" + (index + 1);
+    public void getSQL(StatementBuilder sql) {
+        sql.append('?').append(index + 1);
     }
 
     @Override

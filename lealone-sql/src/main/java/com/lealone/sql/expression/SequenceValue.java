@@ -5,6 +5,7 @@
  */
 package com.lealone.sql.expression;
 
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.schema.Sequence;
 import com.lealone.db.session.ServerSession;
 import com.lealone.db.value.Value;
@@ -62,8 +63,8 @@ public class SequenceValue extends Expression {
     }
 
     @Override
-    public String getSQL() {
-        return "(NEXT VALUE FOR " + sequence.getSQL() + ")";
+    public void getSQL(StatementBuilder sql) {
+        sql.append("(NEXT VALUE FOR ").append(sequence.getSQL()).append(')');
     }
 
     @Override

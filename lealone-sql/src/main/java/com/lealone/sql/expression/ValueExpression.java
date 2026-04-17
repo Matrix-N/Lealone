@@ -5,6 +5,7 @@
  */
 package com.lealone.sql.expression;
 
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.session.ServerSession;
 import com.lealone.db.value.Value;
 import com.lealone.db.value.ValueArray;
@@ -126,8 +127,14 @@ public class ValueExpression extends Expression {
     public String getSQL() {
         if (this == DEFAULT) {
             return "DEFAULT";
+        } else {
+            return value.getSQL();
         }
-        return value.getSQL();
+    }
+
+    @Override
+    public void getSQL(StatementBuilder sql) {
+        sql.append(getSQL());
     }
 
     @Override

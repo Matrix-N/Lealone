@@ -75,15 +75,14 @@ public class JavaFunction extends Function {
     }
 
     @Override
-    public String getSQL() {
-        StatementBuilder buff = new StatementBuilder();
+    public void getSQL(StatementBuilder sql) {
         if (!functionAlias.getSchema().getName().equals(Constants.SCHEMA_MAIN)) {
-            buff.append(LealoneSQLParser.quoteIdentifier(functionAlias.getSchema().getName()))
+            sql.append(LealoneSQLParser.quoteIdentifier(functionAlias.getSchema().getName()))
                     .append('.');
         }
-        buff.append(LealoneSQLParser.quoteIdentifier(functionAlias.getName())).append('(');
-        appendArgs(buff);
-        return buff.append(')').toString();
+        sql.append(LealoneSQLParser.quoteIdentifier(functionAlias.getName())).append('(');
+        appendArgs(sql);
+        sql.append(')');
     }
 
     @Override

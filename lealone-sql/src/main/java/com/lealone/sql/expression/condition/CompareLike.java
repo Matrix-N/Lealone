@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 import com.lealone.common.exceptions.DbException;
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.Database;
 import com.lealone.db.api.ErrorCode;
 import com.lealone.db.session.ServerSession;
@@ -84,17 +85,22 @@ public class CompareLike extends Condition {
     }
 
     @Override
-    public String getSQL() {
-        String sql;
+    public void getSQL(StatementBuilder sql) {
+        sql.append('(');
         if (regexp) {
-            sql = left.getSQL() + " REGEXP " + right.getSQL();
+            left.getSQL(sql);
+            sql.append(" REGEXP ");
+            right.getSQL(sql);
         } else {
-            sql = left.getSQL() + " LIKE " + right.getSQL();
+            left.getSQL(sql);
+            sql.append(" LIKE ");
+            right.getSQL(sql);
             if (escape != null) {
-                sql += " ESCAPE " + escape.getSQL();
+                sql.append(" ESCAPE ");
+                escape.getSQL(sql);
             }
         }
-        return "(" + sql + ")";
+        sql.append(')');
     }
 
     @Override

@@ -5,6 +5,7 @@
  */
 package com.lealone.sql.expression;
 
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.session.ServerSession;
 import com.lealone.db.value.Value;
 import com.lealone.sql.LealoneSQLParser;
@@ -67,8 +68,9 @@ public class Alias extends Expression {
     }
 
     @Override
-    public String getSQL() {
-        return expr.getSQL() + " AS " + LealoneSQLParser.quoteIdentifier(alias);
+    public void getSQL(StatementBuilder sql) {
+        expr.getSQL(sql);
+        sql.append(" AS ").append(LealoneSQLParser.quoteIdentifier(alias));
     }
 
     @Override

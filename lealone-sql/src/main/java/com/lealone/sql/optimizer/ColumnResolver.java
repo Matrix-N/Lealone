@@ -105,6 +105,10 @@ public interface ColumnResolver extends IExpression.Evaluator {
         return expression.optimize(session);
     }
 
+    default int getRowVersion() {
+        return 0;
+    }
+
     int getState();
 
     void setState(int state);

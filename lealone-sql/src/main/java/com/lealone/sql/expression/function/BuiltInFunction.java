@@ -221,11 +221,10 @@ public abstract class BuiltInFunction extends Function {
     }
 
     @Override
-    public String getSQL() {
-        StatementBuilder buff = new StatementBuilder(info.name);
-        buff.append('(');
-        appendArgs(buff);
-        return buff.append(')').toString();
+    public void getSQL(StatementBuilder sql) {
+        sql.append(info.name).append('(');
+        appendArgs(sql);
+        sql.append(')');
     }
 
     @Override

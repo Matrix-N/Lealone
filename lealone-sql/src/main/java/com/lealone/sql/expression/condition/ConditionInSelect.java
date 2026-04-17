@@ -6,6 +6,7 @@
 package com.lealone.sql.expression.condition;
 
 import com.lealone.common.exceptions.DbException;
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.common.util.StringUtils;
 import com.lealone.db.Database;
 import com.lealone.db.api.ErrorCode;
@@ -127,19 +128,19 @@ public class ConditionInSelect extends Condition {
     }
 
     @Override
-    public String getSQL() {
-        StringBuilder buff = new StringBuilder();
-        buff.append('(').append(left.getSQL()).append(' ');
+    public void getSQL(StatementBuilder sql) {
+        sql.append('(');
+        left.getSQL(sql);
+        sql.append(' ');
         if (all) {
-            buff.append(Comparison.getCompareOperator(compareType)).append(" ALL");
+            sql.append(Comparison.getCompareOperator(compareType)).append(" ALL");
         } else {
             if (compareType != Comparison.EQUAL)
-                buff.append(Comparison.getCompareOperator(compareType)).append(" SOME");
+                sql.append(Comparison.getCompareOperator(compareType)).append(" SOME");
             else
-                buff.append("IN");
+                sql.append("IN");
         }
-        buff.append("(\n").append(StringUtils.indent(query.getPlanSQL(), 4, false)).append("))");
-        return buff.toString();
+        sql.append("(\n").append(StringUtils.indent(query.getPlanSQL(), 4, false)).append("))");
     }
 
     @Override

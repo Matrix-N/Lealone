@@ -844,37 +844,44 @@ public class SystemFunction extends BuiltInFunction {
     }
 
     @Override
-    public String getSQL() {
-        StatementBuilder buff = new StatementBuilder(info.name);
+    public void getSQL(StatementBuilder sql) {
+        sql.append(info.name);
         if (info.type == CASE) {
             if (args[0] != null) {
-                buff.append(" ").append(args[0].getSQL());
+                sql.append(' ');
+                args[0].getSQL(sql);
             }
             for (int i = 1, len = args.length - 1; i < len; i += 2) {
-                buff.append(" WHEN ").append(args[i].getSQL());
-                buff.append(" THEN ").append(args[i + 1].getSQL());
+                sql.append(" WHEN ");
+                args[i].getSQL(sql);
+                sql.append(" THEN ");
+                args[i + 1].getSQL(sql);
             }
             if (args.length % 2 == 0) {
-                buff.append(" ELSE ").append(args[args.length - 1].getSQL());
+                sql.append(" ELSE ");
+                args[args.length - 1].getSQL(sql);
             }
-            return buff.append(" END").toString();
+            sql.append(" END");
+            return;
         }
-        buff.append('(');
+        sql.append('(');
         switch (info.type) {
         case CAST: {
-            buff.append(args[0].getSQL()).append(" AS ")
-                    .append(new Column(null, dataType, precision, scale, displaySize).getCreateSQL());
+            args[0].getSQL(sql);
+            sql.append(" AS ");
+            sql.append(new Column(null, dataType, precision, scale, displaySize).getCreateSQL());
             break;
         }
         case CONVERT: {
-            buff.append(args[0].getSQL()).append(',')
-                    .append(new Column(null, dataType, precision, scale, displaySize).getCreateSQL());
+            args[0].getSQL(sql);
+            sql.append(',');
+            sql.append(new Column(null, dataType, precision, scale, displaySize).getCreateSQL());
             break;
         }
         default:
-            appendArgs(buff);
+            appendArgs(sql);
         }
-        return buff.append(')').toString();
+        sql.append(')');
     }
 
     @Override

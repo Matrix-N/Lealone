@@ -5,6 +5,7 @@
  */
 package com.lealone.sql.expression;
 
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.session.ServerSession;
 import com.lealone.db.value.Value;
 import com.lealone.sql.LealoneSQLParser;
@@ -39,8 +40,8 @@ public class Variable extends Expression {
     }
 
     @Override
-    public String getSQL() {
-        return "@" + LealoneSQLParser.quoteIdentifier(name);
+    public void getSQL(StatementBuilder sql) {
+        sql.append('@').append(LealoneSQLParser.quoteIdentifier(name));
     }
 
     @Override

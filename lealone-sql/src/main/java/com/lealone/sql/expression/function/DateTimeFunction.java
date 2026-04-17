@@ -414,19 +414,19 @@ public class DateTimeFunction extends BuiltInFunction {
     }
 
     @Override
-    public String getSQL() {
-        StatementBuilder buff = new StatementBuilder(info.name);
-        buff.append('(');
+    public void getSQL(StatementBuilder sql) {
+        sql.append(info.name).append('(');
         switch (info.type) {
         case EXTRACT: {
             ValueString v = (ValueString) ((ValueExpression) args[0]).getValue(null);
-            buff.append(v.getString()).append(" FROM ").append(args[1].getSQL());
+            sql.append(v.getString()).append(" FROM ");
+            args[1].getSQL(sql);
             break;
         }
         default:
-            appendArgs(buff);
+            appendArgs(sql);
         }
-        return buff.append(')').toString();
+        sql.append(')');
     }
 
     @Override

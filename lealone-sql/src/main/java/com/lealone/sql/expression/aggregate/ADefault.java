@@ -6,6 +6,7 @@
 package com.lealone.sql.expression.aggregate;
 
 import com.lealone.common.exceptions.DbException;
+import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.api.ErrorCode;
 import com.lealone.db.session.ServerSession;
 import com.lealone.db.util.ValueHashMap;
@@ -80,7 +81,7 @@ public class ADefault extends BuiltInAggregate {
     }
 
     @Override
-    public String getSQL() {
+    public void getSQL(StatementBuilder sql) {
         String text;
         switch (type) {
         case SUM:
@@ -93,18 +94,50 @@ public class ADefault extends BuiltInAggregate {
             text = "MAX";
             break;
         case AVG:
+            if (sql.isDistributed()) {
+                if (distinct) {
+                    sql.append("COUNT(DISTINCT ");
+                    on.getSQL(sql);
+                    sql.append("), SUM(DISTINCT ");
+                    on.getSQL(sql);
+                    sql.append(')');
+                } else {
+                    sql.append("COUNT(");
+                    on.getSQL(sql);
+                    sql.append("), SUM(");
+                    on.getSQL(sql);
+                    sql.append(')');
+                }
+                return;
+            }
             text = "AVG";
             break;
         case STDDEV_POP:
+            if (sql.isDistributed()) {
+                getSQL_STDDEV_VAR(sql);
+                return;
+            }
             text = "STDDEV_POP";
             break;
         case STDDEV_SAMP:
+            if (sql.isDistributed()) {
+                getSQL_STDDEV_VAR(sql);
+                return;
+            }
             text = "STDDEV_SAMP";
             break;
         case VAR_POP:
+            if (sql.isDistributed()) {
+                getSQL_STDDEV_VAR(sql);
+                return;
+            }
             text = "VAR_POP";
             break;
         case VAR_SAMP:
+            if (sql.isDistributed()) {
+                getSQL_STDDEV_VAR(sql);
+                return;
+            }
             text = "VAR_SAMP";
             break;
         case BOOL_AND:
@@ -122,7 +155,17 @@ public class ADefault extends BuiltInAggregate {
         default:
             throw DbException.getInternalError("type=" + type);
         }
-        return getSQL(text);
+        getSQL(text, sql);
+    }
+
+    private void getSQL_STDDEV_VAR(StatementBuilder sql) {
+        String onSQL = on.getSQL();
+        if (distinct) {
+            sql.append("COUNT(DISTINCT " + onSQL + "), SUM(DISTINCT " + onSQL + "), SUM(DISTINCT "
+                    + onSQL + " * " + onSQL + ")");
+        } else {
+            sql.append("COUNT(" + onSQL + "), SUM(" + onSQL + "), SUM(" + onSQL + " * " + onSQL + ")");
+        }
     }
 
     public class AggregateDataDefault extends AggregateData {
@@ -341,6 +384,107 @@ public class ADefault extends BuiltInAggregate {
             for (Value v : distinctValues.keys()) {
                 add(session, v, false);
             }
+        }
+
+        @Override
+        void merge(ServerSession session, Value v) {
+            if (v == ValueNull.INSTANCE) {
+                return;
+            }
+            count++;
+            if (distinct) {
+                if (distinctValues == null) {
+                    distinctValues = ValueHashMap.newInstance();
+                }
+                distinctValues.put(v, this);
+                return;
+            }
+            switch (type) {
+            case Aggregate.SUM:
+                if (value == null) {
+                    value = v.convertTo(dataType);
+                } else {
+                    v = v.convertTo(value.getType());
+                    value = value.add(v);
+                }
+                break;
+            case Aggregate.MIN:
+                if (value == null || session.getDatabase().compare(v, value) < 0) {
+                    value = v;
+                }
+                break;
+            case Aggregate.MAX:
+                if (value == null || session.getDatabase().compare(v, value) > 0) {
+                    value = v;
+                }
+                break;
+            case Aggregate.BOOL_AND:
+                v = v.convertTo(Value.BOOLEAN);
+                if (value == null) {
+                    value = v;
+                } else {
+                    value = ValueBoolean.get(value.getBoolean() && v.getBoolean());
+                }
+                break;
+            case Aggregate.BOOL_OR:
+                v = v.convertTo(Value.BOOLEAN);
+                if (value == null) {
+                    value = v;
+                } else {
+                    value = ValueBoolean.get(value.getBoolean() || v.getBoolean());
+                }
+                break;
+            case Aggregate.BIT_AND:
+                if (value == null) {
+                    value = v.convertTo(dataType);
+                } else {
+                    value = ValueLong.get(value.getLong() & v.getLong()).convertTo(dataType);
+                }
+                break;
+            case Aggregate.BIT_OR:
+                if (value == null) {
+                    value = v.convertTo(dataType);
+                } else {
+                    value = ValueLong.get(value.getLong() | v.getLong()).convertTo(dataType);
+                }
+                break;
+            // 这5个在分布式环境下会进行重写，所以合并时是不会出现的
+            case Aggregate.AVG:
+            case Aggregate.STDDEV_POP:
+            case Aggregate.STDDEV_SAMP:
+            case Aggregate.VAR_POP:
+            case Aggregate.VAR_SAMP:
+            default:
+                DbException.throwInternalError("type=" + type);
+            }
+        }
+
+        @Override
+        Value getMergedValue(ServerSession session) {
+            if (distinct) {
+                count = 0;
+                groupDistinct(session, dataType);
+            }
+            Value v = null;
+            switch (type) {
+            case Aggregate.SUM:
+            case Aggregate.MIN:
+            case Aggregate.MAX:
+            case Aggregate.BOOL_AND:
+            case Aggregate.BOOL_OR:
+            case Aggregate.BIT_AND:
+            case Aggregate.BIT_OR:
+                v = value;
+                break;
+            case Aggregate.AVG:
+            case Aggregate.STDDEV_POP:
+            case Aggregate.STDDEV_SAMP:
+            case Aggregate.VAR_POP:
+            case Aggregate.VAR_SAMP:
+            default:
+                DbException.throwInternalError("type=" + type);
+            }
+            return v == null ? ValueNull.INSTANCE : v.convertTo(dataType);
         }
     }
 }

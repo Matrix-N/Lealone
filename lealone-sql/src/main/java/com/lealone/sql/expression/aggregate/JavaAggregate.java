@@ -97,14 +97,13 @@ public class JavaAggregate extends com.lealone.sql.expression.aggregate.Aggregat
     }
 
     @Override
-    public String getSQL() {
-        StatementBuilder buff = new StatementBuilder();
-        buff.append(LealoneSQLParser.quoteIdentifier(userAggregate.getName())).append('(');
+    public void getSQL(StatementBuilder sql) {
+        sql.append(LealoneSQLParser.quoteIdentifier(userAggregate.getName())).append('(');
         for (Expression e : args) {
-            buff.appendExceptFirst(", ");
-            buff.append(e.getSQL());
+            sql.appendExceptFirst(", ");
+            e.getSQL(sql);
         }
-        return buff.append(')').toString();
+        sql.append(')');
     }
 
     private Aggregate getInstance() throws SQLException {

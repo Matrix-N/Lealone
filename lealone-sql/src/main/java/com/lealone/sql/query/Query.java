@@ -49,7 +49,7 @@ public abstract class Query extends ManipulationStatement implements com.lealone
      */
     protected Expression limitExpr;
 
-    /** 
+    /**
      * The offset expression as specified in the LIMIT .. OFFSET clause.
      */
     protected Expression offsetExpr;

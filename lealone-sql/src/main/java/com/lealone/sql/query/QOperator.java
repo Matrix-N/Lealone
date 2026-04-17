@@ -7,6 +7,7 @@ package com.lealone.sql.query;
 
 import com.lealone.db.result.LocalResult;
 import com.lealone.db.result.ResultTarget;
+import com.lealone.db.row.Row;
 import com.lealone.db.session.ServerSession;
 import com.lealone.db.value.Value;
 import com.lealone.sql.expression.Expression;
@@ -15,15 +16,20 @@ import com.lealone.sql.expression.evaluator.AlwaysTrueEvaluator;
 import com.lealone.sql.expression.evaluator.ExpressionEvaluator;
 import com.lealone.sql.expression.evaluator.ExpressionInterpreter;
 import com.lealone.sql.operator.Operator;
+import com.lealone.sql.optimizer.TableFilter;
 import com.lealone.sql.optimizer.TableIterator;
 
 // 由子类实现具体的查询操作
 public abstract class QOperator implements Operator {
 
     protected final Select select;
+    protected final TableFilter topTableFilter;
     protected final ServerSession session;
     protected final ExpressionEvaluator conditionEvaluator;
     protected final TableIterator tableIterator;
+
+    protected boolean hasNext;
+    protected Row oldRow;
 
     protected int columnCount;
     protected ResultTarget target;
@@ -40,6 +46,7 @@ public abstract class QOperator implements Operator {
 
     public QOperator(Select select) {
         this.select = select;
+        topTableFilter = select.getTopTableFilter();
         session = select.getSession();
         tableIterator = new TableIterator(session, select.getTopTableFilter());
         Expression c = select.condition;
