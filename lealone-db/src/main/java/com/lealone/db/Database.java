@@ -21,6 +21,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.ZipOutputStream;
 
 import com.lealone.agent.CodeAgent;
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.exceptions.DbException;
 import com.lealone.common.trace.Trace;
 import com.lealone.common.trace.TraceModuleType;
@@ -838,9 +840,10 @@ public class Database extends DbObjectBase implements DataHandler {
      * Add an object to the database.
      *
      * @param session the session
-     * @param obj the object to add
+     * @param obj the object to addd
      */
     public void addDatabaseObject(ServerSession session, DbObject obj, DbObjectLock lock) {
+        SystemOutline.createNode(SystemOutlineNode.addDatabaseObject);
         TransactionalDbObjects dbObjects = dbObjectsArray[obj.getType().value];
 
         if (SysProperties.CHECK && dbObjects.containsKey(session, obj.getName())) {

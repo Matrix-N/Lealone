@@ -21,6 +21,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.util.DataUtils;
 import com.lealone.common.util.MapUtils;
 import com.lealone.db.Constants;
@@ -283,6 +285,7 @@ public class RedoLog {
     }
 
     public void save() {
+        SystemOutline.createNode(SystemOutlineNode.RedoLog_save);
         boolean isPeriodic = logSyncService.isPeriodic();
         // 事务中涉及的StorageMap对应的log
         HashMap<String, RedoLogBuffer> logs = null;

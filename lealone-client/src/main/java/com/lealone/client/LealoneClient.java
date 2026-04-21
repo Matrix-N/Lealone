@@ -346,7 +346,7 @@ public class LealoneClient {
                         println("#" + (1 + i) + ": " + s);
                     }
                     if (history.size() > 0) {
-                        println("To re-run a statement, type the number and press and enter");
+                        println("To re-run a statement, type the number and press enter");
                     } else {
                         println("No history");
                     }

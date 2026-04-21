@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.exceptions.DbException;
 import com.lealone.common.util.StatementBuilder;
 import com.lealone.common.util.StringUtils;
@@ -89,6 +91,7 @@ public class Select extends Query {
 
     public Select(ServerSession session) {
         super(session);
+        SystemOutline.createNode(SystemOutlineNode.Select);
     }
 
     @Override
@@ -364,6 +367,7 @@ public class Select extends Query {
 
     @Override
     public PreparedSQLStatement prepare() {
+        SystemOutline.createNode(SystemOutlineNode.Select_prepare);
         if (isPrepared) {
             // sometimes a subquery is prepared twice (CREATE TABLE AS SELECT)
             return this;

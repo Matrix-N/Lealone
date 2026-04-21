@@ -5,6 +5,8 @@
  */
 package com.lealone.sql.query;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.db.async.AsyncResultHandler;
 import com.lealone.db.lock.DbObjectLock;
 import com.lealone.db.plugin.PluginManager;
@@ -72,6 +74,7 @@ public class YieldableSelect extends YieldableQueryBase {
 
     @Override
     protected void startInternal() {
+        SystemOutline.createNode(SystemOutlineNode.Select_start);
         // select.getTopTableFilter().lock(session, select.isForUpdate);
         select.fireBeforeSelectTriggers();
         queryOperator = createQueryOperator();
@@ -87,6 +90,7 @@ public class YieldableSelect extends YieldableQueryBase {
 
     @Override
     protected void executeInternal() {
+        SystemOutline.createNode(SystemOutlineNode.Select_execute);
         while (true) {
             session.setStatus(SessionStatus.STATEMENT_RUNNING);
             try {

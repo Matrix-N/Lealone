@@ -13,6 +13,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.db.lock.Lockable;
 import com.lealone.storage.StorageMap;
 import com.lealone.storage.StorageMap.RedoLogBuffer;
@@ -89,6 +91,7 @@ public class UndoLog {
     }
 
     public UndoLogRecord add(StorageMap<?, ?> map, Object key, Lockable lockable, Object oldValue) {
+        SystemOutline.createNode(SystemOutlineNode.UndoLogRecord_add);
         if (map.getKeyType().isKeyOnly()) {
             return add(new KeyOnlyULR(map, key, lockable, oldValue));
         } else {

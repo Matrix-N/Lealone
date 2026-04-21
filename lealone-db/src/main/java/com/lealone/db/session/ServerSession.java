@@ -16,6 +16,8 @@ import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.exceptions.DbException;
 import com.lealone.common.trace.Trace;
 import com.lealone.common.trace.TraceSystem;
@@ -535,6 +537,7 @@ public class ServerSession extends SessionBase implements InternalSession {
 
     public <T> void stopCurrentCommand(PreparedSQLStatement statement,
             AsyncResultHandler<T> asyncHandler, AsyncResult<T> asyncResult) {
+        SystemOutline.createNode(SystemOutlineNode.stopCurrentCommand);
         // 执行rollback命令时executingStatements会置0，然后再执行stopCurrentCommand
         // 此时executingStatements不需要再减了
         if (executingStatements > 0 && --executingStatements > 0) {

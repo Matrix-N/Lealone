@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.exceptions.DbException;
 import com.lealone.common.util.StatementBuilder;
 import com.lealone.common.util.Utils;
@@ -38,6 +40,7 @@ public class Update extends UpDel {
 
     public Update(ServerSession session) {
         super(session);
+        SystemOutline.createNode(SystemOutlineNode.Update);
     }
 
     @Override

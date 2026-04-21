@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.exceptions.DbException;
 import com.lealone.common.util.CaseInsensitiveMap;
 import com.lealone.common.util.MapUtils;
@@ -395,6 +397,7 @@ public class StandardTable extends Table {
 
     @Override
     public void addRow(ServerSession session, Row row, AsyncResultHandler<Integer> handler) {
+        SystemOutline.createNode(SystemOutlineNode.addRow);
         lastModificationId = database.getNextModificationDataId();
         if (containsLargeObject()) {
             AsyncResultHandler<Integer> topHandler = handler;
@@ -459,6 +462,7 @@ public class StandardTable extends Table {
     @Override
     public void updateRow(ServerSession session, Row oldRow, Row newRow, int[] updateColumns,
             boolean isLockedBySelf, AsyncResultHandler<Integer> handler) {
+        SystemOutline.createNode(SystemOutlineNode.updateRow);
         lastModificationId = database.getNextModificationDataId();
         ArrayList<Index> oldIndexes = indexesSync;
         int size = oldIndexes.size();
@@ -493,6 +497,7 @@ public class StandardTable extends Table {
     @Override
     public void removeRow(ServerSession session, Row row, boolean isLockedBySelf,
             AsyncResultHandler<Integer> handler) {
+        SystemOutline.createNode(SystemOutlineNode.removeRow);
         lastModificationId = database.getNextModificationDataId();
         ArrayList<Index> oldIndexes = indexesSync;
         int size = oldIndexes.size();

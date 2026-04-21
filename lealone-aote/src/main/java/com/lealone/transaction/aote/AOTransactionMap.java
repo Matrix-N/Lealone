@@ -8,6 +8,8 @@ package com.lealone.transaction.aote;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.util.DataUtils;
 import com.lealone.db.async.AsyncResultHandler;
 import com.lealone.db.lock.Lockable;
@@ -391,12 +393,14 @@ public class AOTransactionMap<K, V> implements TransactionMap<K, V> {
 
     @Override
     public int tryUpdate(K key, V newValue, Lockable lockable, boolean isLockedBySelf) {
+        SystemOutline.createNode(SystemOutlineNode.tryUpdate);
         DataUtils.checkNotNull(newValue, "newValue");
         return tryUpdateOrRemove(key, newValue, lockable, isLockedBySelf);
     }
 
     @Override
     public int tryRemove(K key, Lockable lockable, boolean isLockedBySelf) {
+        SystemOutline.createNode(SystemOutlineNode.tryRemove);
         return tryUpdateOrRemove(key, null, lockable, isLockedBySelf);
     }
 

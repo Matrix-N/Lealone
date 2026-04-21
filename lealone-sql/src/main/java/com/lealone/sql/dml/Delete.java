@@ -5,6 +5,8 @@
  */
 package com.lealone.sql.dml;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.api.Trigger;
 import com.lealone.db.async.AsyncResultHandler;
@@ -24,6 +26,7 @@ public class Delete extends UpDel {
 
     public Delete(ServerSession session) {
         super(session);
+        SystemOutline.createNode(SystemOutlineNode.Delete);
     }
 
     @Override

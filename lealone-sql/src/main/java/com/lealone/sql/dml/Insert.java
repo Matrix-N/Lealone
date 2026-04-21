@@ -5,6 +5,8 @@
  */
 package com.lealone.sql.dml;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.api.Trigger;
 import com.lealone.db.async.AsyncResultHandler;
@@ -22,6 +24,7 @@ public class Insert extends MerSert {
 
     public Insert(ServerSession session) {
         super(session);
+        SystemOutline.createNode(SystemOutlineNode.Insert);
     }
 
     @Override
@@ -55,6 +58,7 @@ public class Insert extends MerSert {
 
         @Override
         protected void startInternal() {
+            SystemOutline.createNode(SystemOutlineNode.Insert_startInternal);
             session.getUser().checkRight(table, Right.INSERT);
             table.fire(session, Trigger.INSERT, true);
             super.startInternal();

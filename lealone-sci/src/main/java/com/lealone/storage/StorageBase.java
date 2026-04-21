@@ -113,19 +113,29 @@ public abstract class StorageBase implements Storage {
 
     @Override
     public void backupTo(String fileName, Long lastDate) {
-        if (isInMemory())
-            return;
-        save();
-        backupFiles(fileName, lastDate);
+        backupTo(fileName, StorageMapFilter.createLastDateFilter(lastDate));
     }
 
     @Override
     public void backupTo(String baseDir, ZipOutputStream out, Long lastDate) {
+        backupTo(baseDir, out, StorageMapFilter.createLastDateFilter(lastDate));
+    }
+
+    @Override
+    public void backupTo(String fileName, StorageMapFilter filter) {
+        if (isInMemory())
+            return;
+        save();
+        backupFiles(fileName, filter);
+    }
+
+    @Override
+    public void backupTo(String baseDir, ZipOutputStream out, StorageMapFilter filter) {
         if (isInMemory())
             return;
         save();
         try {
-            backupFiles(baseDir, out, lastDate);
+            backupFiles(baseDir, out, filter);
         } catch (IOException e) {
             throw DbException.convertIOException(e, "");
         }
@@ -179,15 +189,16 @@ public abstract class StorageBase implements Storage {
         return file.newInputStream();
     }
 
-    private void backupFiles(String toFile, Long lastDate) {
+    private void backupFiles(String toFile, StorageMapFilter filter) {
         try (ZipOutputStream out = createZipOutputStream(toFile)) {
-            backupFiles(null, out, lastDate);
+            backupFiles(null, out, filter);
         } catch (IOException e) {
             throw DbException.convertIOException(e, toFile);
         }
     }
 
-    private void backupFiles(String baseDir, ZipOutputStream out, Long lastDate) throws IOException {
+    private void backupFiles(String baseDir, ZipOutputStream out, StorageMapFilter filter)
+            throws IOException {
         if (baseDir != null)
             baseDir = new File(baseDir).getCanonicalPath().replace('\\', '/');
         String path = new File(getStoragePath()).getCanonicalPath(); // 可能是一个文件或目录
@@ -203,7 +214,7 @@ public abstract class StorageBase implements Storage {
                 String mapName = map.getName();
                 String entryNameBase = pathShortName + "/" + mapName;
                 for (FilePath file : map.newDirectoryStream()) {
-                    if (lastDate == null || file.lastModified() > lastDate.longValue())
+                    if (filter.accept(mapName, file))
                         backupFile(out, getInputStream(mapName, file),
                                 entryNameBase + "/" + file.getName());
                 }

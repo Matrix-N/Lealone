@@ -26,6 +26,7 @@ import com.lealone.db.value.Value;
 import com.lealone.db.value.ValueLob;
 import com.lealone.storage.Storage;
 import com.lealone.storage.StorageMapCursor;
+import com.lealone.storage.StorageMapFilter;
 import com.lealone.storage.aose.AOStorage;
 import com.lealone.storage.aose.btree.BTreeMap;
 import com.lealone.storage.lob.LobStorage;
@@ -99,6 +100,13 @@ public class LobStreamStorage implements LobStorage, com.lealone.transaction.Tra
         if (storage != null) {
             init();
             storage.backupTo(baseDir, out, lastDate);
+        }
+    }
+
+    public void backupTo(String baseDir, ZipOutputStream out, StorageMapFilter filter) {
+        if (storage != null) {
+            init();
+            storage.backupTo(baseDir, out, filter);
         }
     }
 

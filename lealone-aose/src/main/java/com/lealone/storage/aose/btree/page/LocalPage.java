@@ -5,6 +5,8 @@
  */
 package com.lealone.storage.aose.btree.page;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.util.DataUtils;
 import com.lealone.storage.aose.btree.BTreeMap;
 import com.lealone.storage.type.StorageDataType;
@@ -34,6 +36,7 @@ public abstract class LocalPage extends Page {
 
     @Override
     public Object getKey(int index) {
+        SystemOutline.createNode(SystemOutlineNode.Page_getKey);
         return keys[index];
     }
 

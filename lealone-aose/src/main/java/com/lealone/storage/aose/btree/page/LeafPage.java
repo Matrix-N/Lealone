@@ -7,6 +7,8 @@ package com.lealone.storage.aose.btree.page;
 
 import java.nio.ByteBuffer;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.util.DataUtils;
 import com.lealone.db.DataBuffer;
 import com.lealone.db.lock.Lock;
@@ -94,6 +96,7 @@ public abstract class LeafPage extends LocalPage {
 
     @Override
     public Page copyAndInsertLeaf(int index, Object key, Object value) {
+        SystemOutline.createNode(SystemOutlineNode.copyAndInsertLeaf);
         int len = keys.length + 1;
         Object[] newKeys = new Object[len];
         DataUtils.copyWithGap(keys, newKeys, len - 1, index);

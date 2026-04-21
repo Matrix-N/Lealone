@@ -6,12 +6,13 @@
 package com.lealone.storage.page;
 
 import com.lealone.db.scheduler.InternalScheduler;
-import com.lealone.db.session.Session;
+import com.lealone.db.session.InternalSession;
 
 public interface PageOperation {
 
     public static enum PageOperationResult {
         SUCCEEDED,
+        REMOTE_WRITTING,
         RETRY,
         LOCKED,
         FAILED;
@@ -25,7 +26,7 @@ public interface PageOperation {
         return PageOperationResult.SUCCEEDED;
     }
 
-    default Session getSession() {
+    default InternalSession getSession() {
         return null;
     }
 }

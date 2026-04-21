@@ -21,6 +21,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.exceptions.DbException;
 import com.lealone.common.logging.Logger;
 import com.lealone.common.logging.LoggerFactory;
@@ -428,6 +430,7 @@ public class NioEventLoop implements NetEventLoop {
     }
 
     private boolean write(SelectionKey key, SocketChannel channel, WritableBuffer buffer) {
+        SystemOutline.createNode(SystemOutlineNode.NioEventLoop_write);
         ByteBuffer bb = buffer.getByteBuffer();
         int remaining = bb.remaining();
         try {

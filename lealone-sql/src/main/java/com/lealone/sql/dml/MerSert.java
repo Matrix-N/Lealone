@@ -8,6 +8,8 @@ package com.lealone.sql.dml;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.exceptions.DbException;
 import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.DataHandler;
@@ -126,6 +128,7 @@ public abstract class MerSert extends ManipulationStatement {
 
     @Override
     public PreparedSQLStatement prepare() {
+        SystemOutline.createNode(SystemOutlineNode.MerSert_prepare);
         if (columns == null) {
             if (list.size() > 0 && list.get(0).length == 0) {
                 // special case where table is used as a sequence
@@ -193,6 +196,7 @@ public abstract class MerSert extends ManipulationStatement {
 
         @Override
         protected void executeLoopUpdate() {
+            SystemOutline.createNode(SystemOutlineNode.MerSert_executeLoopUpdate);
             if (table.containsLargeObject()) {
                 DataHandler dh = session.getDataHandler();
                 session.setDataHandler(table.getDataHandler()); // lob字段通过FILE_READ函数赋值时会用到

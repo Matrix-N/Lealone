@@ -10,6 +10,8 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.exceptions.DbException;
 import com.lealone.common.logging.Logger;
 import com.lealone.common.logging.LoggerFactory;
@@ -167,6 +169,7 @@ public abstract class LogSyncService extends Thread {
     public abstract void syncWrite(AOTransaction t, RedoLogRecord r);
 
     private static void addPendingTransaction(PendingTransaction pt, AOTransaction t) {
+        SystemOutline.createNode(SystemOutlineNode.addPendingTransaction);
         CountDownLatch latch = null;
         InternalScheduler scheduler = pt.getScheduler();
         // 积压了大量待处理事务且内存紧张时，调度服务线程要等待

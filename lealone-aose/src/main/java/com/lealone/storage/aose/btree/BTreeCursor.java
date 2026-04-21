@@ -5,6 +5,8 @@
  */
 package com.lealone.storage.aose.btree;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.storage.CursorParameters;
 import com.lealone.storage.StorageMapCursor;
 import com.lealone.storage.aose.btree.page.Page;
@@ -28,6 +30,7 @@ public class BTreeCursor<K, V> implements StorageMapCursor<K, V> {
     private V value;
 
     public BTreeCursor(BTreeMap<K, ?> map, CursorParameters<K> parameters) {
+        SystemOutline.createNode(SystemOutlineNode.BTreeCursor);
         this.map = map;
         this.parameters = parameters;
         // 定位到>=from的第一个leaf page
@@ -47,6 +50,7 @@ public class BTreeCursor<K, V> implements StorageMapCursor<K, V> {
     @Override
     @SuppressWarnings("unchecked")
     public boolean next() {
+        SystemOutline.createNode(SystemOutlineNode.BTreeCursor_next);
         if (hasNext()) {
             int index = pos.index++;
             key = (K) pos.page.getKey(index);

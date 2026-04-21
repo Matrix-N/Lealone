@@ -7,6 +7,8 @@ package com.lealone.sql.dml;
 
 import java.util.ArrayList;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.exceptions.DbException;
 import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.api.ErrorCode;
@@ -35,6 +37,7 @@ public class Merge extends MerSert {
 
     public Merge(ServerSession session) {
         super(session);
+        SystemOutline.createNode(SystemOutlineNode.Merge);
     }
 
     @Override

@@ -10,6 +10,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.exceptions.DbException;
 import com.lealone.common.util.StatementBuilder;
 import com.lealone.db.Database;
@@ -190,6 +192,7 @@ public class Schema extends DbObjectBase {
      */
     // 执行DDL语句时session不为null，需要在meta表中增加一条对应的记录
     public void add(ServerSession session, SchemaObject obj, DbObjectLock lock) {
+        SystemOutline.createNode(SystemOutlineNode.addSchemaObject);
         TransactionalDbObjects dbObjects = dbObjectsArray[obj.getType().value];
         int id = obj.getId();
 

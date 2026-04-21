@@ -5,6 +5,8 @@
  */
 package com.lealone.sql.executor;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.db.async.AsyncResultHandler;
 import com.lealone.db.session.SessionStatus;
 import com.lealone.sql.StatementBase;
@@ -17,6 +19,7 @@ public class YieldableLocalUpdate extends YieldableUpdateBase {
 
     @Override
     protected void executeInternal() {
+        SystemOutline.createNode(SystemOutlineNode.executeLocalUpdate);
         session.setStatus(SessionStatus.STATEMENT_RUNNING);
         int updateCount = statement.update();
         setResult(updateCount);

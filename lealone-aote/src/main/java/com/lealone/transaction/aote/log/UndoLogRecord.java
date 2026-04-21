@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.db.DataBuffer;
 import com.lealone.db.lock.Lockable;
 import com.lealone.db.value.ValueString;
@@ -52,6 +54,7 @@ public abstract class UndoLogRecord {
 
     // 调用这个方法时事务已经提交，redo日志已经写完，这里只是在内存中更新到最新值
     public void commit(AOTransactionEngine te) {
+        SystemOutline.createNode(SystemOutlineNode.UndoLogRecord_commit);
         if (ignore())
             return;
 
@@ -130,6 +133,7 @@ public abstract class UndoLogRecord {
 
         @Override // 写redo log时，不关心oldValue
         public int writeForRedo(Map<String, RedoLogBuffer> logs, int logServiceIndex, UndoLog undoLog) {
+            SystemOutline.createNode(SystemOutlineNode.UndoLogRecord_writeForRedo);
             if (logServiceIndex != this.logServiceIndex || ignore() || map.isInMemory())
                 return 0;
             RedoLogBuffer logBuffer = map.getRedoLogBuffer();

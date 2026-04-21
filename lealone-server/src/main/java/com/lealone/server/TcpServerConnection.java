@@ -8,6 +8,8 @@ package com.lealone.server;
 import java.io.IOException;
 import java.util.HashMap;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.exceptions.DbException;
 import com.lealone.common.logging.Logger;
 import com.lealone.common.logging.LoggerFactory;
@@ -68,6 +70,7 @@ public class TcpServerConnection extends AsyncServerConnection {
     @Override
     protected void handleRequest(TransferInputStream in, int packetId, int packetType)
             throws IOException {
+        SystemOutline.createNode(SystemOutlineNode.handleRequest);
         // 这里的sessionId是客户端session的id，每个数据包都会带这个字段
         int sessionId = in.readInt();
         ServerSessionInfo si = sessions.get(sessionId);
@@ -231,6 +234,7 @@ public class TcpServerConnection extends AsyncServerConnection {
     }
 
     public void sendResponse(PacketHandleTask task, Packet packet) {
+        SystemOutline.createNode(SystemOutlineNode.sendResponse);
         ServerSession session = task.session;
         try {
             out.writeResponseHeader(session, task.packetId, getStatus(session));

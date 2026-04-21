@@ -50,12 +50,16 @@ public interface Storage {
     void drop();
 
     default void backupTo(String fileName) {
-        backupTo(fileName, null);
+        backupTo(fileName, (Long) null);
     }
 
     void backupTo(String fileName, Long lastDate);
 
     void backupTo(String baseDir, ZipOutputStream out, Long lastDate);
+
+    void backupTo(String fileName, StorageMapFilter filter);
+
+    void backupTo(String baseDir, ZipOutputStream out, StorageMapFilter filter);
 
     void close();
 
@@ -75,5 +79,4 @@ public interface Storage {
     default boolean isByteStorage() {
         return false;
     }
-
 }

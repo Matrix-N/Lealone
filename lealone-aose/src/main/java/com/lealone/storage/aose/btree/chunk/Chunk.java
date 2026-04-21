@@ -11,6 +11,8 @@ import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.util.DataUtils;
 import com.lealone.db.DataBuffer;
 import com.lealone.storage.FormatVersion;
@@ -317,6 +319,7 @@ public class Chunk {
 
     // 这个方法未调用sync，上层调用者需要额外按需调用sync
     public void writeRedoLog(ByteBuffer log) {
+        SystemOutline.createNode(SystemOutlineNode.writeRedoLog);
         long pos = size();
         if (pos == 0) { // 第一次写RedoLog时还是空chunk，先写chunk头
             writeHeader();

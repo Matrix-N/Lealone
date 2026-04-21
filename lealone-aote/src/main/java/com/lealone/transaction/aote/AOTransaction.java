@@ -9,6 +9,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 
+import com.lealone.agent.SystemOutline;
+import com.lealone.agent.SystemOutlineNode;
 import com.lealone.common.exceptions.DbException;
 import com.lealone.common.util.DataUtils;
 import com.lealone.db.RunMode;
@@ -259,6 +261,7 @@ public class AOTransaction implements Transaction {
 
     @Override
     public void asyncCommit(Runnable asyncTask) {
+        SystemOutline.createNode(SystemOutlineNode.asyncCommit);
         this.asyncTask = asyncTask;
         writeRedoLog(true);
     }
