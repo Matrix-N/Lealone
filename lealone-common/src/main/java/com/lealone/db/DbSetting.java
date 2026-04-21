@@ -64,6 +64,7 @@ public enum DbSetting {
     TRACE_LEVEL_SYSTEM_OUT,
     TRACE_LEVEL_FILE,
     TRACE_MAX_FILE_SIZE,
+    CONSISTENCY_LEVEL,
 
     // 在存储层也可用的参数
     ENCRYPTION_KEY,

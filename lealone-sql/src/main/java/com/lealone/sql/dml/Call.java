@@ -15,6 +15,8 @@ import com.lealone.db.value.Value;
 import com.lealone.sql.PreparedSQLStatement;
 import com.lealone.sql.SQLStatement;
 import com.lealone.sql.expression.Expression;
+import com.lealone.sql.expression.visitor.DeterministicVisitor;
+import com.lealone.sql.expression.visitor.ExpressionVisitorFactory;
 
 /**
  * This class represents the statement
@@ -62,6 +64,11 @@ public class Call extends ManipulationStatement {
         return Future.succeededFuture(result);
     }
 
+    public boolean isDeterministic() {
+        DeterministicVisitor dv = ExpressionVisitorFactory.getDeterministicVisitor();
+        return dv.visitExpression(expression);
+    }
+
     @Override
     public PreparedSQLStatement prepare() {
         expression = expression.optimize(session);
@@ -70,6 +77,8 @@ public class Call extends ManipulationStatement {
         if (isResultSet) {
             prepareAlways = true;
         }
+        if (session.isReplicationMode())
+            session.setDeterministic(isDeterministic());
         return this;
     }
 

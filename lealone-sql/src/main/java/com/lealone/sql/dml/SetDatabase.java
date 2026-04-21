@@ -259,6 +259,11 @@ public class SetDatabase extends SetStatement {
             }
             break;
         }
+        case CONSISTENCY_LEVEL: {
+            int value = getAndValidateIntValue();
+            setDbSetting(value);
+            break;
+        }
         case LLM: {
             StatementBuilder sql = new StatementBuilder();
             Database.appendMap(sql, parameters, false);
