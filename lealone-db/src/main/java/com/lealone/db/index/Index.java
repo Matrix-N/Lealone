@@ -5,6 +5,9 @@
  */
 package com.lealone.db.index;
 
+import java.util.List;
+import java.util.Map;
+
 import com.lealone.common.exceptions.DbException;
 import com.lealone.db.async.AsyncResultHandler;
 import com.lealone.db.result.SortOrder;
@@ -16,6 +19,7 @@ import com.lealone.db.table.Column;
 import com.lealone.db.table.Table;
 import com.lealone.db.value.Value;
 import com.lealone.storage.CursorParameters;
+import com.lealone.storage.page.PageKey;
 
 /**
  * An index. Indexes are used to speed up searching data.
@@ -291,5 +295,10 @@ public interface Index extends SchemaObject {
 
     default boolean isBuilding() {
         return false;
+    }
+
+    default Map<List<String>, List<PageKey>> getNodeToPageKeyMap(ServerSession session, SearchRow first,
+            SearchRow last) {
+        return null;
     }
 }

@@ -5,6 +5,9 @@
  */
 package com.lealone.db.index.standard;
 
+import java.util.List;
+import java.util.Map;
+
 import com.lealone.common.exceptions.DbException;
 import com.lealone.db.Constants;
 import com.lealone.db.DataHandler;
@@ -27,6 +30,8 @@ import com.lealone.db.value.ValueLob;
 import com.lealone.db.value.ValueLong;
 import com.lealone.storage.CursorParameters;
 import com.lealone.storage.Storage;
+import com.lealone.storage.StorageMap;
+import com.lealone.storage.page.PageKey;
 import com.lealone.transaction.Transaction;
 import com.lealone.transaction.TransactionEngine;
 import com.lealone.transaction.TransactionMap;
@@ -361,6 +366,15 @@ public class StandardPrimaryIndex extends StandardDataIndex<Row, Row> {
         return pk == null ? null : new Row(pk.getKey(), null);
     }
 
+    @Override
+    public Map<List<String>, List<PageKey>> getNodeToPageKeyMap(ServerSession session, SearchRow first,
+            SearchRow last) {
+        Row from = getPK(first);
+        Row to = getPK(last);
+        StorageMap<Row, Row> map = getTransactionMap(session);
+        return map.getNodeToPageKeyMap(from, to);
+    }
+
     private static class StandardPrimaryIndexCursor extends StandardDataIndexCursor {
 
         private final ServerSession session;
@@ -370,10 +384,10 @@ public class StandardPrimaryIndex extends StandardDataIndex<Row, Row> {
         private Row row;
 
         public StandardPrimaryIndexCursor(ServerSession session, StandardTable table,
-                TransactionMapCursor<Row, Row> cursor, Row last) {
+                TransactionMapCursor<Row, Row> tmCursor, Row last) {
             this.session = session;
             this.table = table;
-            this.cursor = cursor;
+            this.cursor = tmCursor;
             this.last = last;
         }
 

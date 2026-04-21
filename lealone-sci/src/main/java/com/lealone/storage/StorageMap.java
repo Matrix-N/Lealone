@@ -6,14 +6,18 @@
 package com.lealone.storage;
 
 import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.lealone.common.exceptions.DbException;
 import com.lealone.db.Constants;
 import com.lealone.db.DataBuffer;
 import com.lealone.db.async.AsyncResultHandler;
 import com.lealone.db.async.Future;
 import com.lealone.db.lock.Lockable;
 import com.lealone.db.session.InternalSession;
+import com.lealone.storage.page.PageKey;
 import com.lealone.storage.type.StorageDataType;
 
 public interface StorageMap<K, V> {
@@ -378,5 +382,9 @@ public interface StorageMap<K, V> {
                 log = null;
             }
         }
+    }
+
+    default Map<List<String>, List<PageKey>> getNodeToPageKeyMap(K from, K to) {
+        throw DbException.getUnsupportedException("getNodeToPageKeyMap");
     }
 }

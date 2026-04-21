@@ -1882,4 +1882,11 @@ public class ServerSession extends SessionBase implements InternalSession {
         setAutoCommit(autoCommit);
         setAllowLiterals(false);
     }
+
+    public void setDeterministic(boolean deterministic) {
+    }
+
+    public boolean isReplicationMode() {
+        return false;
+    }
 }

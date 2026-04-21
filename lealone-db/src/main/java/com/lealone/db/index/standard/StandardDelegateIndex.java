@@ -5,6 +5,9 @@
  */
 package com.lealone.db.index.standard;
 
+import java.util.List;
+import java.util.Map;
+
 import com.lealone.common.exceptions.DbException;
 import com.lealone.db.index.Cursor;
 import com.lealone.db.index.IndexBase;
@@ -17,6 +20,7 @@ import com.lealone.db.session.ServerSession;
 import com.lealone.db.table.Column;
 import com.lealone.db.table.StandardTable;
 import com.lealone.storage.CursorParameters;
+import com.lealone.storage.page.PageKey;
 
 /**
  * An index that delegates indexing to another index.
@@ -94,5 +98,11 @@ public class StandardDelegateIndex extends IndexBase {
     @Override
     public long getMemorySpaceUsed() {
         return mainIndex.getMemorySpaceUsed();
+    }
+
+    @Override
+    public Map<List<String>, List<PageKey>> getNodeToPageKeyMap(ServerSession session, SearchRow first,
+            SearchRow last) {
+        return mainIndex.getNodeToPageKeyMap(session, first, last);
     }
 }
