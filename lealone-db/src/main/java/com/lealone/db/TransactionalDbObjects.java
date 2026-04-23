@@ -47,6 +47,10 @@ public class TransactionalDbObjects {
         long tid = transaction.getTransactionId();
         if (tid == version) {
             return dbObjects.get(dbObjectName);
+        } else if (tid < version) {
+            // 看看是不是嵌套session更新了
+            if (session.getMaxNestedTransactionId() >= version)
+                return dbObjects.get(dbObjectName);
         }
         Transaction pt = transaction.getParentTransaction();
         if (pt != null && pt.getTransactionId() == version) {

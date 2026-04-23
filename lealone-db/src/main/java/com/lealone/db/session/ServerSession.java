@@ -1025,6 +1025,18 @@ public class ServerSession extends SessionBase implements InternalSession {
         return conn;
     }
 
+    public long getMaxNestedTransactionId() {
+        if (nestedSessions == null)
+            return 0;
+        long max = 0;
+        for (ServerSession s : nestedSessions) {
+            long tid = s.getTransaction().getTransactionId();
+            if (tid > max)
+                max = tid;
+        }
+        return max;
+    }
+
     public ServerSession createNestedSession() {
         return createNestedSession(true);
     }
