@@ -41,6 +41,8 @@ import com.lealone.orm.format.JsonFormat;
 import com.lealone.orm.format.NameCaseFormat;
 import com.lealone.orm.json.JsonObject;
 import com.lealone.orm.property.PBase;
+import com.lealone.orm.property.PBaseNumber;
+import com.lealone.orm.property.PInteger;
 import com.lealone.orm.property.PLong;
 import com.lealone.sql.StatementBase;
 import com.lealone.sql.dml.Delete;
@@ -868,7 +870,10 @@ public abstract class Model<T extends Model<T>> {
             String columnName = ic.column != null ? ic.column.getName() : ic.columnName;
             for (ModelProperty p : modelProperties) {
                 if (p.getName().equalsIgnoreCase(columnName)) {
-                    ((PLong) p).set(rowId);
+                    if (p instanceof PInteger)
+                        ((PBaseNumber) p).set((int) rowId);
+                    else
+                        ((PBaseNumber) p).set(rowId);
                     break;
                 }
             }
