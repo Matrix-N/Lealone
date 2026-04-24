@@ -18,7 +18,7 @@ create service if not exists my_service (
     get_current_time() varchar
 );
 
-create table if not exists user4 (
+create table if not exists user (
     id long auto_increment primary key,
     name varchar,
     age int
@@ -26,9 +26,9 @@ create table if not exists user4 (
 
 -- http://localhost:8080/service/user_service/add_user?name=zhh&age=18
 -- http://localhost:8080/service/user_service/find_by_name?name=zhh
-create service if not exists user_service4 (
+create service if not exists user_service (
     add_user(name varchar, age int) long,
-    find(name varchar) list<user4>
+    find_by_name(name varchar) user
 );
 
 -- http://localhost:8080/service/my_workflow/start?name=zhh
