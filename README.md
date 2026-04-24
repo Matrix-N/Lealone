@@ -15,19 +15,9 @@
 或者直接下载 [lealone-8.0.0-SNAPSHOT.jar](https://lealone-plugins.github.io/lealone.github.io/lealone/lealone-8.0.0-SNAPSHOT.jar)
 
 
-### 启动 Lealone
-
-`java -jar target/lealone-8.0.0-SNAPSHOT.jar`
-
-
-### 打开 Lealone Agent
-
-`java -jar target/lealone-8.0.0-SNAPSHOT.jar -agent`
-
-
 ### 配置大模型
 
-在 agent 窗口中执行以下命令配置大模型:
+把以下信息保存到一个 llm.sql 文件:
 
 ```sql
 set llm (
@@ -37,6 +27,16 @@ set llm (
 );
 ```
 
+### 启动 Lealone
+
+`java -jar target/lealone-8.0.0-SNAPSHOT.jar llm.sql`
+
+
+### 打开 Lealone Agent
+
+`java -jar target/lealone-8.0.0-SNAPSHOT.jar -agent`
+
+
 ### 个人助理
 
 在 agent 窗口中用自然语言随意输入一段文字用分号结束
@@ -44,7 +44,7 @@ set llm (
 
 ### 氛围编程
 
-在 agent 聊天窗口输入：实现一个todo应用, 等待20多秒后会返回一个 URL，用浏览器打开即可
+在 agent 窗口输入：实现一个todo应用，等待20多秒后会返回一个 URL，用浏览器打开即可
 
 
 ### 零代码零需求文档渐进式开发一个企业级 AI 应用
