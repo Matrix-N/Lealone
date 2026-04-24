@@ -15,9 +15,19 @@
 或者直接下载 [lealone-8.0.0-SNAPSHOT.jar](https://lealone-plugins.github.io/lealone.github.io/lealone/lealone-8.0.0-SNAPSHOT.jar)
 
 
+### 启动 Lealone
+
+`java -jar target/lealone-8.0.0-SNAPSHOT.jar`
+
+
+### 打开 Lealone Agent
+
+`java -jar target/lealone-8.0.0-SNAPSHOT.jar -agent`
+
+
 ### 配置大模型
 
-把以下信息保存到一个 llm.sql 文件:
+在 agent 窗口中执行以下命令配置大模型，只需要执行一次:
 
 ```sql
 set llm (
@@ -26,16 +36,6 @@ set llm (
     api_key: '替换成你的apikey'
 );
 ```
-
-### 启动 Lealone
-
-`java -jar target/lealone-8.0.0-SNAPSHOT.jar llm.sql`
-
-
-### 打开 Lealone Agent
-
-`java -jar target/lealone-8.0.0-SNAPSHOT.jar -agent`
-
 
 ### 个人助理
 
