@@ -7,6 +7,8 @@ package com.lealone.http.tomcat;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -16,6 +18,7 @@ import org.apache.juli.logging.LogFactory;
 import org.apache.tomcat.util.descriptor.web.FilterDef;
 import org.apache.tomcat.util.descriptor.web.FilterMap;
 
+import com.lealone.common.util.IOUtils;
 import com.lealone.common.util.StringUtils;
 import com.lealone.common.util.Utils;
 import com.lealone.service.ServiceHandler;
@@ -27,6 +30,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.Servlet;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpFilter;
+import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.Part;
@@ -56,6 +60,7 @@ public class TomcatRouter implements HttpRouter {
         initFilters(config);
         addServlet("serviceServlet", new TomcatServiceServlet(new ServiceHandler(config)), "/service/*");
         addServlet("defaultServlet", new TomcatDefaultServlet(config), "/");
+        addServlet("agentServlet", new AgentServlet(), "/agent");
         if (isDevelopmentEnvironment(config)) {
             addFilter(new TemplateFilter(), "*.html");
         }
@@ -205,6 +210,18 @@ public class TomcatRouter implements HttpRouter {
                 throws ServletException, IOException {
             response.setCharacterEncoding(characterEncoding);
             super.service(request, response);
+        }
+    }
+
+    private static class AgentServlet extends HttpServlet {
+        @Override
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+            try (InputStream in = getClass().getResourceAsStream("/web/agent.html");
+                    OutputStream out = response.getOutputStream()) {
+                response.setContentType("text/html;charset=UTF-8");
+                IOUtils.copy(in, out);
+            }
         }
     }
 }

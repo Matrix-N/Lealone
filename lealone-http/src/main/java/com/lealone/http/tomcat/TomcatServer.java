@@ -159,6 +159,7 @@ public class TomcatServer extends AsyncServer<TomcatServerConnection> implements
                 webRootDir = new File(getBaseDir(), "work");
                 if (!webRootDir.exists())
                     webRootDir.mkdirs();
+                webRoot = webRootDir.getAbsolutePath();
             }
         }
         try {

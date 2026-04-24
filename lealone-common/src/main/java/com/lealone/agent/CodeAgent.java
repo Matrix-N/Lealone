@@ -6,17 +6,26 @@
 package com.lealone.agent;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.lealone.common.exceptions.DbException;
+import com.lealone.db.DataHandler;
 import com.lealone.db.api.ErrorCode;
 import com.lealone.db.plugin.Plugin;
 import com.lealone.db.plugin.PluginManager;
+import com.lealone.db.session.Session;
 
 public interface CodeAgent extends Plugin {
 
     public String getPromptPrefix();
 
-    public String generateJavaCode(String userPrompt);
+    public default String send(String userPrompt) {
+        return send(userPrompt, null);
+    }
+
+    public String send(String userPrompt, AtomicReference<String> previousResponseId);
+
+    public String execute(String userPrompt, DataHandler db, Session session);
 
     public static CodeAgent getCodeAgent(Map<String, String> llmParameters) {
         String llmProvider = llmParameters.get("PROVIDER");

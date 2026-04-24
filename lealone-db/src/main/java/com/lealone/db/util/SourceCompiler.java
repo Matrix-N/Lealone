@@ -560,6 +560,7 @@ public class SourceCompiler {
             if (diagnostic.getKind() == javax.tools.Diagnostic.Kind.ERROR) {
                 String message = diagnostic.toString() + " (" + diagnostic.getCode() + ")";
                 logger.error(message);
+                throw new RuntimeException(message);
             } else if (logger.isTraceEnabled()) {
                 logger.trace(diagnostic.toString() + " (" + diagnostic.getCode() + ")");
             }

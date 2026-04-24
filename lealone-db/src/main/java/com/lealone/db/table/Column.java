@@ -745,6 +745,13 @@ public class Column {
         return type == Value.LIST || type == Value.SET || type == Value.MAP;
     }
 
+    public String getCollectionTypeCreateSQL(boolean exceptName) {
+        if (getTable() != null)
+            return getTable().getName();
+        else
+            return getCreateSQL(exceptName);
+    }
+
     public boolean isEnumType() {
         return type == Value.ENUM;
     }
@@ -756,6 +763,16 @@ public class Column {
         public ListColumn(String name, Column element) {
             super(name, Value.LIST);
             this.element = element;
+        }
+
+        @Override
+        public String getCreateSQL(boolean exceptName) {
+            return "list<" + element.getCollectionTypeCreateSQL(exceptName) + ">";
+        }
+
+        @Override
+        public Table getTable() {
+            return element.getTable();
         }
 
         @Override
@@ -776,6 +793,16 @@ public class Column {
         }
 
         @Override
+        public String getCreateSQL(boolean exceptName) {
+            return "set<" + element.getCollectionTypeCreateSQL(exceptName) + ">";
+        }
+
+        @Override
+        public Table getTable() {
+            return element.getTable();
+        }
+
+        @Override
         public Value convert(Value v) {
             ValueSet vs = (ValueSet) super.convert(v);
             vs.convertComponent(element.type);
@@ -792,6 +819,17 @@ public class Column {
             super(name, Value.MAP);
             this.key = key;
             this.value = value;
+        }
+
+        @Override
+        public String getCreateSQL(boolean exceptName) {
+            return "map<" + key.getCollectionTypeCreateSQL(exceptName) + ","
+                    + value.getCollectionTypeCreateSQL(exceptName) + ">";
+        }
+
+        @Override
+        public Table getTable() {
+            return key.getTable() != null ? key.getTable() : value.getTable();
         }
 
         @Override

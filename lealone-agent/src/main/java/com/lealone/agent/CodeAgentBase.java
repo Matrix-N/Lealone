@@ -8,8 +8,12 @@ package com.lealone.agent;
 import java.util.Map;
 
 import com.lealone.common.util.MapUtils;
+import com.lealone.db.DataHandler;
+import com.lealone.db.Database;
 import com.lealone.db.plugin.Plugin;
 import com.lealone.db.plugin.PluginBase;
+import com.lealone.db.session.ServerSession;
+import com.lealone.db.session.Session;
 
 public abstract class CodeAgentBase extends PluginBase implements CodeAgent {
 
@@ -65,10 +69,12 @@ public abstract class CodeAgentBase extends PluginBase implements CodeAgent {
     }
 
     @Override
-    public abstract String generateJavaCode(String userPrompt);
-
-    @Override
     public Class<? extends Plugin> getPluginClass() {
         return CodeAgent.class;
+    }
+
+    @Override
+    public String execute(String userPrompt, DataHandler db, Session session) {
+        return new AgentExecutor(userPrompt, (Database) db, (ServerSession) session).execute();
     }
 }

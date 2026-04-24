@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.lealone.agent.CodeAgent;
 import com.lealone.common.exceptions.DbException;
@@ -189,43 +190,47 @@ public class Service extends SchemaObjectBase {
     }
 
     private void genServiceCode(CodeAgent agent) {
-        StringBuilder userPrompt = new StringBuilder();
-        userPrompt.append("以下是").append(getName()).append("服务接口，");
-        userPrompt.append(agent.getPromptPrefix());
-        userPrompt.append("\n").append(getCreateSQL()).append("\n");
-        logger.info("Prompt:\n{}", getCreateSQL());
-        genJavaCode(agent, getTables(), userPrompt);
+        long t1 = System.currentTimeMillis();
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("以下是").append(getName()).append("服务接口，");
+        prompt.append(agent.getPromptPrefix());
+        prompt.append("\n").append(getCreateSQL()).append("\n");
+        if (!getDatabase().isPromptMode())
+            logger.info("Prompt:\n{}", getCreateSQL());
+        genJavaCode(agent, getTables(), prompt);
+        logger.info("genServiceCode time: " + (System.currentTimeMillis() - t1) + " ms");
     }
 
     private void genWorkflowCode(CodeAgent agent) {
-        StringBuilder userPrompt = new StringBuilder();
-        userPrompt.append(agent.getPromptPrefix()).append("\n");
+        StringBuilder prompt = new StringBuilder();
+        prompt.append(agent.getPromptPrefix()).append("\n");
         boolean first = true;
         for (SchemaObject so : schema.getAll(DbObjectType.SERVICE)) {
             if (!so.getName().equals(getName())) {
                 if (!first) {
                     first = false;
-                    userPrompt.append("、");
+                    prompt.append("、");
                 }
-                userPrompt.append(((Service) so).getImplementBy());
+                prompt.append(((Service) so).getImplementBy());
             }
         }
 
-        userPrompt.append("是服务接口实现类可以直接创建局部对象，优先使用服务接口，为").append(getName());
-        userPrompt.append("生成一个工作流。").append('\n');
+        prompt.append("是服务接口实现类可以直接创建局部对象，优先使用服务接口，为").append(getName());
+        prompt.append("生成一个工作流。").append('\n');
         for (SchemaObject so : schema.getAll(DbObjectType.SERVICE)) {
             if (!so.getName().equals(getName())) {
-                userPrompt.append(so.getCreateSQL());
-                userPrompt.append('\n');
+                prompt.append(so.getCreateSQL());
+                prompt.append('\n');
             }
         }
-        userPrompt.append(getCreateSQL());
-        userPrompt.append('\n');
-        logger.info("Prompt:\n{}", getCreateSQL());
-        genJavaCode(agent, schema.getAllTablesAndViews(), userPrompt);
+        prompt.append(getCreateSQL());
+        prompt.append('\n');
+        if (!getDatabase().isPromptMode())
+            logger.info("Prompt:\n{}", getCreateSQL());
+        genJavaCode(agent, schema.getAllTablesAndViews(), prompt);
     }
 
-    private void genJavaCode(CodeAgent agent, Iterable<Table> tables, StringBuilder userPrompt) {
+    private void genJavaCode(CodeAgent agent, Iterable<Table> tables, StringBuilder prompt) {
         SourceCompiler compiler = getDatabase().getCompiler();
         Class<?> modelClass = null;
         HashSet<Class<?>> propertyClasses = new HashSet<>();
@@ -234,8 +239,8 @@ public class Service extends SchemaObjectBase {
                 continue;
             String className = toClassName(t.getName());
             String fullName = t.getPackageName() + "." + className;
-            userPrompt.append("以下是").append(className);
-            userPrompt.append("类的源代码:\n");
+            prompt.append("以下是").append(className);
+            prompt.append("类的源代码:\n");
             String code = t.getCode();
             if (code == null) {
                 String src = t.getCodePath();
@@ -245,7 +250,7 @@ public class Service extends SchemaObjectBase {
                 code = readSrcFile(src, t.getPackageName(), className);
                 t.setCode(code);
             }
-            userPrompt.append(code);
+            prompt.append(code);
             try {
                 Class<?> tableClass = compiler.getClass(fullName);
                 if (modelClass == null) {
@@ -262,55 +267,64 @@ public class Service extends SchemaObjectBase {
             }
         }
         if (modelClass != null) {
-            userPrompt.append("\n");
-            userPrompt.append("以下是Model类可用的方法, 返回类型或参数类型是T时表示用Model类的子类替换:\n");
+            prompt.append("\n");
+            prompt.append("以下是Model类可用的方法, 返回类型或参数类型是T时表示用Model类的子类替换:\n");
             for (Method m : modelClass.getDeclaredMethods()) {
                 if (Modifier.isPublic(m.getModifiers())) {
-                    toString(m, userPrompt);
+                    toString(m, prompt);
                 }
             }
         }
         for (Class<?> pc : propertyClasses) {
-            userPrompt.append("\n");
-            userPrompt.append("以下是").append(pc.getCanonicalName());
-            userPrompt.append("类可用的方法, 返回类型或参数类型是T时表示用Model类的子类替换:\n");
+            prompt.append("\n");
+            prompt.append("以下是").append(pc.getCanonicalName());
+            prompt.append("类可用的方法, 返回类型或参数类型是T时表示用Model类的子类替换:\n");
             Class<?> currentClass = pc;
             while (currentClass != null && currentClass != Object.class) {
                 for (Method m : currentClass.getDeclaredMethods()) {
                     int modifiers = m.getModifiers();
                     if (Modifier.isPublic(modifiers) && !Modifier.isStatic(modifiers)) {
-                        toString(m, userPrompt);
+                        toString(m, prompt);
                     }
                 }
                 currentClass = currentClass.getSuperclass();
             }
         }
-        // logger.info("Prompt:\n{}", userPrompt);
-        String javaCode = agent.generateJavaCode(userPrompt.toString());
-        logger.info("Java code:\n{}", javaCode);
-        compiler.setSource(getImplementBy(), javaCode);
-        File classDir = getClassDir();
-        try {
-            URL[] urls = { classDir.toURI().toURL() };
-            compiler.setUrls(urls);
-            implementClass = compiler.compile(getImplementBy());
-            writeFile(javaCode); // 编译成功再写
-        } catch (Exception e) {
-            throw DbException.convert(e);
+        if (getDatabase().isPromptMode())
+            logger.info("Prompt:\n{}", prompt);
+        AtomicReference<String> previousResponseId = new AtomicReference<>();
+        String javaCode = agent.send(prompt.toString(), previousResponseId);
+        for (int i = 0; i < 3; i++) {
+            logger.info("Java code:\n{}", javaCode);
+            compiler.setSource(getImplementBy(), javaCode);
+            File classDir = getClassDir();
+            try {
+                URL[] urls = { classDir.toURI().toURL() };
+                compiler.setUrls(urls);
+                implementClass = compiler.compile(getImplementBy());
+                writeFile(javaCode); // 编译成功再写
+                return;
+            } catch (Exception e) {
+                if (i >= 3)
+                    throw DbException.convert(e);
+                String message = DbException.getRootCause(e).getMessage();
+                logger.info("Code error:\n{}", javaCode);
+                javaCode = agent.send(message, previousResponseId);
+            }
         }
     }
 
-    private static void toString(Method m, StringBuilder userPrompt) {
-        userPrompt.append(getTypeName(m.getReturnType())).append(" ");
-        userPrompt.append(m.getName()).append("(");
+    private static void toString(Method m, StringBuilder prompt) {
+        prompt.append(getTypeName(m.getReturnType())).append(" ");
+        prompt.append(m.getName()).append("(");
         int i = 0;
         for (Class<?> p : m.getParameterTypes()) {
             if (i != 0)
-                userPrompt.append(",");
+                prompt.append(",");
             i++;
-            userPrompt.append(getTypeName(p));
+            prompt.append(getTypeName(p));
         }
-        userPrompt.append(")\n");
+        prompt.append(")\n");
     }
 
     private static String getTypeName(Class<?> c) {

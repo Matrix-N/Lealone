@@ -3,6 +3,7 @@
 set llm (
     provider: 'doubao', --目前只支持doubao
     model: 'doubao-seed-2-0-pro-260215',
+    prompt_mode: false,
     --api_key: '替换成你的apikey'
 );
 
@@ -17,7 +18,7 @@ create service if not exists my_service (
     get_current_time() varchar
 );
 
-create table if not exists user (
+create table if not exists user4 (
     id long auto_increment primary key,
     name varchar,
     age int
@@ -25,9 +26,9 @@ create table if not exists user (
 
 -- http://localhost:8080/service/user_service/add_user?name=zhh&age=18
 -- http://localhost:8080/service/user_service/find_by_name?name=zhh
-create service if not exists user_service (
+create service if not exists user_service4 (
     add_user(name varchar, age int) long,
-    find_by_name(name varchar) user
+    find(name varchar) list<user4>
 );
 
 -- http://localhost:8080/service/my_workflow/start?name=zhh

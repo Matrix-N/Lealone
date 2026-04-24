@@ -299,6 +299,8 @@ public abstract class Model<T extends Model<T>> {
             return m.select(properties);
         }
         selectExpressions = new ArrayList<>();
+        if (properties.length == 0)
+            properties = modelProperties;
         for (ModelProperty<?> p : properties) {
             ExpressionColumn c = getExpressionColumn(p);
             selectExpressions.add(c);

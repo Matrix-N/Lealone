@@ -29,6 +29,7 @@ import com.lealone.common.trace.TraceModuleType;
 import com.lealone.common.trace.TraceSystem;
 import com.lealone.common.util.BitField;
 import com.lealone.common.util.CaseInsensitiveMap;
+import com.lealone.common.util.MapUtils;
 import com.lealone.common.util.StatementBuilder;
 import com.lealone.common.util.StringUtils;
 import com.lealone.common.util.TempFileDeleter;
@@ -2000,14 +2001,24 @@ public class Database extends DbObjectBase implements DataHandler {
         this.llmParameters = llmParameters;
     }
 
+    private boolean useLealoneDatabaseLLM() {
+        return llmParameters == null && this != LealoneDatabase.getInstance();
+    }
+
     public boolean isAgentEnabled() {
-        if (llmParameters == null && this != LealoneDatabase.getInstance())
+        if (useLealoneDatabaseLLM())
             return LealoneDatabase.getInstance().isAgentEnabled();
         return llmParameters != null && llmParameters.containsKey("PROVIDER");
     }
 
+    public boolean isPromptMode() {
+        if (useLealoneDatabaseLLM())
+            return LealoneDatabase.getInstance().isPromptMode();
+        return MapUtils.getBoolean(llmParameters, "PROMPT_MODE", false);
+    }
+
     public CodeAgent getCodeAgent() {
-        if (llmParameters == null && this != LealoneDatabase.getInstance())
+        if (useLealoneDatabaseLLM())
             return LealoneDatabase.getInstance().getCodeAgent();
         return CodeAgent.getCodeAgent(llmParameters);
     }

@@ -8,12 +8,14 @@ package com.lealone.service;
 import java.util.ArrayList;
 import java.util.Map;
 
+import com.lealone.agent.CodeAgent;
 import com.lealone.common.util.CamelCaseHelper;
 import com.lealone.common.util.StringUtils;
 import com.lealone.db.Database;
 import com.lealone.db.LealoneDatabase;
 import com.lealone.db.service.Service;
 import com.lealone.db.service.ServiceMethod;
+import com.lealone.db.session.ServerSession;
 import com.lealone.db.table.Column;
 import com.lealone.orm.json.JsonArray;
 import com.lealone.orm.json.JsonObject;
@@ -60,12 +62,37 @@ public class SystemService {
             if (serviceNames == null)
                 return "";
             return loadServices(dbName, schemaName, serviceNames.toString());
+        case "CHAT":
+            return chat(dbName, methodArgs);
         default:
             throw new RuntimeException("no method: " + methodName);
         }
     }
 
-    public static String loadServices(String dbName, String schemaName, String serviceNames) {
+    private static String chat(String dbName, Map<String, Object> methodArgs) {
+        String content;
+        JsonObject json = new JsonObject();
+        Database db = LealoneDatabase.getInstance().getDatabase(dbName);
+        if (!db.isInitialized())
+            db.init();
+        if (!db.isAgentEnabled()) {
+            content = "LLM not enabled";
+        } else {
+            Object promptObject = methodArgs.get("prompt");
+            if (promptObject == null) {
+                content = "";
+            } else {
+                try (ServerSession session = db.createSession(db.getSystemUser())) {
+                    CodeAgent agent = db.getCodeAgent();
+                    content = agent.execute(promptObject.toString().trim(), db, session);
+                }
+            }
+        }
+        json.put("data", content);
+        return json.encode();
+    }
+
+    private static String loadServices(String dbName, String schemaName, String serviceNames) {
         JsonArray ja = new JsonArray();
         Database db = LealoneDatabase.getInstance().getDatabase(dbName);
         for (String serviceName : serviceNames.split(",")) {
