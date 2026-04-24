@@ -290,8 +290,10 @@ public class Service extends SchemaObjectBase {
                 currentClass = currentClass.getSuperclass();
             }
         }
-        if (getDatabase().isPromptMode())
+        if (getDatabase().isPromptMode()) {
             logger.info("Prompt:\n{}", prompt);
+            return;
+        }
         AtomicReference<String> previousResponseId = new AtomicReference<>();
         String javaCode = agent.send(prompt.toString(), previousResponseId);
         for (int i = 0; i < 3; i++) {

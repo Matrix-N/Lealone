@@ -49,6 +49,10 @@ public class CreateDatabase extends DatabaseStatement {
             return -1;
 
         if (LealoneDatabase.isMe(dbName) || lealoneDB.findDatabase(dbName) != null) {
+            if (lealoneDB.isStarting()) {
+                lealoneDB.updateDbSettings(parameters);
+                return 0;
+            }
             if (ifNotExists) {
                 return 0;
             }

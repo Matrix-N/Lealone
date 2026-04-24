@@ -352,6 +352,12 @@ public class Database extends DbObjectBase implements DataHandler {
         return changed;
     }
 
+    public void updateDbSettings(Map<String, String> newSettings) {
+        parameters.putAll(newSettings);
+        dbSettings = DbSettings.getInstance(parameters);
+        resetLLMParameters();
+    }
+
     public boolean isPersistent() {
         return persistent;
     }
@@ -500,10 +506,7 @@ public class Database extends DbObjectBase implements DataHandler {
             systemSession = new ServerSession(this, systemUser, ++nextSessionId);
             setSessionScheduler(systemSession, null);
 
-            String llmParametersStr = this.parameters.get(DbSetting.LLM.name());
-            if (llmParametersStr != null) {
-                systemSession.executeUpdateLocal("set llm " + llmParametersStr.replace('"', '\''));
-            }
+            resetLLMParameters();
 
             // 在一个新事务中打开sys(meta)表
             systemSession.setAutoCommit(false);
@@ -799,7 +802,7 @@ public class Database extends DbObjectBase implements DataHandler {
 
     public void updateMeta(ServerSession session, DbObject obj, Row oldRow) {
         int id = obj.getId();
-        if (id > 0 && isMetaReady()) {
+        if ((id > 0 || obj == LealoneDatabase.getInstance()) && isMetaReady()) {
             checkWritingAllowed();
             boolean isLockedBySelf;
             if (oldRow != null) {
@@ -815,6 +818,9 @@ public class Database extends DbObjectBase implements DataHandler {
                 meta.updateRow(session, oldRow, newRow, new int[] { sqlColumn.getColumnId() },
                         isLockedBySelf);
                 getNextModificationMetaId();
+            } else if (obj == LealoneDatabase.getInstance()) {
+                Row r = MetaRecord.getRow(meta, obj);
+                meta.addRow(session, r);
             }
         }
     }
@@ -1989,6 +1995,14 @@ public class Database extends DbObjectBase implements DataHandler {
 
     public void setLastGcMetaId(long lastGcMetaId) {
         this.lastGcMetaId = lastGcMetaId;
+    }
+
+    private void resetLLMParameters() {
+        String llmParametersStr = this.parameters.get(DbSetting.LLM.name());
+        if (llmParametersStr != null) {
+            systemSession.createNestedSession()
+                    .executeUpdateLocal("set llm " + llmParametersStr.replace('"', '\''));
+        }
     }
 
     private CaseInsensitiveMap<String> llmParameters;
