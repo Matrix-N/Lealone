@@ -7,7 +7,7 @@ package com.lealone.agent.test;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.lealone.agent.doubao.DoubaoAgent;
+import com.lealone.agent.provider.DoubaoCodeAgent;
 
 public class DoubaoChatTest {
 
@@ -16,7 +16,7 @@ public class DoubaoChatTest {
     }
 
     public void run(String[] args) {
-        DoubaoAgent agent = new DoubaoAgent();
+        DoubaoCodeAgent agent = new DoubaoCodeAgent();
         agent.init(args);
         AtomicReference<String> previousResponseId = new AtomicReference<>();
         System.out.println(agent.send("你是谁", previousResponseId));

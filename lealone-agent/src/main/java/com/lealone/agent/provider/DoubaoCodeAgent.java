@@ -3,7 +3,7 @@
  * Licensed under the Server Side Public License, v 1.
  * Initial Developer: zhh
  */
-package com.lealone.agent.doubao;
+package com.lealone.agent.provider;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -22,25 +22,14 @@ import com.lealone.orm.json.JsonArray;
 import com.lealone.orm.json.JsonObject;
 
 //调用LLM的api是低频操作，并且LLM的处理速度很慢，所以直接用HttpURLConnection发送请求处理响应即可
-public class DoubaoAgent extends AppCodeAgent {
+public class DoubaoCodeAgent extends AppCodeAgent {
 
-    public DoubaoAgent() {
+    public DoubaoCodeAgent() {
         super("doubao");
     }
 
     @Override
-    public void init(String[] args) {
-        super.init(args);
-        afterInit();
-    }
-
-    @Override
-    public void init(Map<String, String> config) {
-        super.init(config);
-        afterInit();
-    }
-
-    private void afterInit() {
+    protected void afterInit() {
         if (model == null)
             model = "doubao-seed-2-0-pro-260215";
         if (url == null)
@@ -76,14 +65,6 @@ public class DoubaoAgent extends AppCodeAgent {
     // arkService.shutdownExecutor();
     // return javaCode;
     // }
-
-    private static final String promptPrefix = "请根据需求生成java代码实现类，不要生成接口，代码采用驼峰格式，" + //
-            "只输出纯代码，不要任何解释，不要```java标记，不要多余文字：";
-
-    @Override
-    public String getPromptPrefix() {
-        return promptPrefix;
-    }
 
     @Override // Responses API
     public String send(String userPrompt, AtomicReference<String> previousResponseId) {

@@ -5,6 +5,8 @@
  */
 package com.lealone.agent;
 
+import java.util.Map;
+
 import com.lealone.db.DataHandler;
 import com.lealone.db.Database;
 import com.lealone.db.session.ServerSession;
@@ -15,6 +17,29 @@ public abstract class AppCodeAgent extends CodeAgentBase {
 
     public AppCodeAgent(String name) {
         super(name);
+    }
+
+    @Override
+    public void init(String[] args) {
+        super.init(args);
+        afterInit();
+    }
+
+    @Override
+    public void init(Map<String, String> config) {
+        super.init(config);
+        afterInit();
+    }
+
+    protected void afterInit() {
+    }
+
+    private static final String promptPrefix = "请根据需求生成java代码实现类，不要生成接口，代码采用驼峰格式，" + //
+            "只输出纯代码，不要任何解释，不要```java标记，不要多余文字：";
+
+    @Override
+    public String getPromptPrefix() {
+        return promptPrefix;
     }
 
     @Override
