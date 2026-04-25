@@ -1,1 +1,2 @@
-com.lealone.agent.doubao.DoubaoAgent
+com.lealone.agent.provider.DoubaoCodeAgent
+com.lealone.agent.provider.DeepSeekCodeAgent
