@@ -2036,4 +2036,10 @@ public class Database extends DbObjectBase implements DataHandler {
             return LealoneDatabase.getInstance().getCodeAgent();
         return CodeAgent.getCodeAgent(llmParameters);
     }
+
+    public CodeAgent getCodeAgent(ServerSession session) {
+        if (useLealoneDatabaseLLM())
+            return LealoneDatabase.getInstance().getCodeAgent(session);
+        return CodeAgent.getCodeAgent(llmParameters);
+    }
 }

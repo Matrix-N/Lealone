@@ -37,7 +37,7 @@ public class AgentStatement extends StatementBase {
     @Override
     public Result query(int maxRows) {
         Database db = session.getDatabase();
-        CodeAgent agent = db.getCodeAgent();
+        CodeAgent agent = db.getCodeAgent(session);
         String content = agent.execute(userPrompt, db, session);
         ExpressionColumn c = new ExpressionColumn(db, new Column("content", Value.STRING));
         LocalResult result = new LocalResult(session, new IExpression[] { c, }, 1);

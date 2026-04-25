@@ -16,13 +16,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.lealone.agent.CodeAgentBase;
+import com.lealone.agent.AppCodeAgent;
 import com.lealone.common.exceptions.DbException;
 import com.lealone.orm.json.JsonArray;
 import com.lealone.orm.json.JsonObject;
 
 //调用LLM的api是低频操作，并且LLM的处理速度很慢，所以直接用HttpURLConnection发送请求处理响应即可
-public class DoubaoAgent extends CodeAgentBase {
+public class DoubaoAgent extends AppCodeAgent {
 
     public DoubaoAgent() {
         super("doubao");
