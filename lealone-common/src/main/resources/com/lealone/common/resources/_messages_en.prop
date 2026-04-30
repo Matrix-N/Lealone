@@ -40,7 +40,7 @@
 90007=The object is already closed
 90008=Invalid value {0} for parameter {1}
 90009=Unable to create or alter sequence {0} because of invalid attributes (start value {1}, min value {2}, max value {3}, increment {4})
-90010=Invalid TO_CHAR format {0}
+#90010=Invalid TO_CHAR format {0}
 #90011已经废弃
 90012=Parameter {0} is not set
 90013=Database {0} not found
@@ -48,10 +48,10 @@
 90015=SUM or AVG on wrong data type for {0}
 90016=Column {0} must be in the GROUP BY list
 90017=Attempt to define a second primary key
-90018=The connection was not closed by the application and is garbage collected
+#90018=The connection was not closed by the application and is garbage collected
 90019=Cannot drop the current user
-90020=Database may be already in use: {0}. Possible solutions: close all other connection(s); use the server mode
-90021=This combination of database settings is not supported: {0}
+#90020=Database may be already in use: {0}. Possible solutions: close all other connection(s); use the server mode
+#90021=This combination of database settings is not supported: {0}
 90022=Function {0} not found
 90023=Column {0} must not be nullable
 90024=Error while renaming file {0} to {1}
@@ -69,7 +69,7 @@
 90036=Sequence {0} not found
 90037=View {0} not found
 90038=View {0} already exists
-90039=This CLOB or BLOB reference timed out: {0}
+#90039=This CLOB or BLOB reference timed out: {0}
 90040=Admin rights are required for this operation
 90041=Trigger {0} already exists
 90042=Trigger {0} not found
@@ -78,7 +78,7 @@
 90045=Constraint {0} already exists
 90046=URL format error; must be {0} but is {1}
 90047=Version mismatch, driver version is {0} but server version is {1}
-90048=Unsupported database file version or invalid file header in file {0}
+#90048=Unsupported database file version or invalid file header in file {0}
 90049=Encryption error in file {0}
 90050=Wrong password format, must be: file password <space> user password
 90052=Subquery is not a single column query
@@ -88,8 +88,8 @@
 90057=Constraint {0} not found
 90058=Commit or rollback is not allowed within a trigger
 90059=Ambiguous column name {0}
-90060=Unsupported file lock method {0}
-90061=Exception opening port {0} (port may be in use), cause: {1}
+#90060=Unsupported file lock method {0}
+#90061=Exception opening port {0} (port may be in use), cause: {1}
 90062=Error while creating file {0}
 90063=Savepoint is invalid: {0}
 90064=Savepoint is unnamed
@@ -120,14 +120,14 @@
 90089=Collation cannot be changed because there is a data table: {0}
 90090=Schema {0} cannot be dropped
 90091=Role {0} cannot be dropped
-90093=Clustering error - database currently runs in standalone mode
-90094=Clustering error - database currently runs in cluster mode, server list: {0}
+#90093=Clustering error - database currently runs in standalone mode
+#90094=Clustering error - database currently runs in cluster mode, server list: {0}
 90095=String format error: {0}
 90096=Not enough rights for object {0}
 90097=The database is read only
 90098=The database has been closed
 90099=Error setting database event listener {0}, cause: {1}
-90101=Wrong XID format: {0}
+#90101=Wrong XID format: {0}
 90102=Unsupported compression options: {0}
 90103=Unsupported compression algorithm: {0}
 90104=Compression error
@@ -136,8 +136,8 @@
 90107=Cannot drop {0} because {1} depends on it
 90108=Out of memory.
 90109=View {0} is invalid: {1}
-90111=Error accessing linked table with SQL statement {0}, cause: {1}
-90112=Row not found when trying to delete from index {0}
+#90111=Error accessing linked table with SQL statement {0}, cause: {1}
+#90112=Row not found when trying to delete from index {0}
 90113=Unsupported connection setting {0}
 90114=Constant {0} already exists
 90115=Constant {0} not found
@@ -146,7 +146,7 @@
 90118=Cannot drop table {0}
 90119=User data type {0} already exists
 90120=User data type {0} not found
-90121=Database is already closed (to disable automatic closing at VM shutdown, add ";DB_CLOSE_ON_EXIT=FALSE" to the db URL)
+#90121=Database is already closed (to disable automatic closing at VM shutdown, add ";DB_CLOSE_ON_EXIT=FALSE" to the db URL)
 90122=Operation not supported for table {0} when there are views on the table: {1}
 90123=Cannot mix indexed and non-indexed parameters
 90124=File not found: {0}
@@ -154,19 +154,19 @@
 90126=Database is not persistent
 90127=The result set is not updatable. The query must select all columns from a unique key. Only one table may be selected.
 90128=The result set is not scrollable and can not be reset. You may need to use conn.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ..).
-90129=Transaction {0} not found
+#90129=Transaction {0} not found
 90130=This method is not allowed for a prepared statement; use a regular statement instead.
-90131=Concurrent update in table {0}: another transaction has updated or deleted the same row
+#90131=Concurrent update in table {0}: another transaction has updated or deleted the same row
 90132=Aggregate {0} not found
-90133=Cannot change the setting {0} when the database is already open
+#90133=Cannot change the setting {0} when the database is already open
 90134=Access to the class {0} is denied
-90135=The database is open in exclusive mode; can not open additional connections
-90136=Unsupported outer join condition: {0}
+#90135=The database is open in exclusive mode; can not open additional connections
+#90136=Unsupported outer join condition: {0}
 90137=Can only assign to a variable, not to: {0}
 90138=Invalid database name: {0}
 90139=The public static Java method was not found: {0}
 90140=The result set is readonly. You may need to use conn.createStatement(.., ResultSet.CONCUR_UPDATABLE).
-90141=Serializer cannot be changed because there is a data table: {0}
+#90141=Serializer cannot be changed because there is a data table: {0}
 90142=Step size must not be zero
 90143=Lealone database admin rights are required for this operation: {0}
 90144=Cannot drop lealone database

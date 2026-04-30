@@ -847,7 +847,7 @@ public class Database extends DbObjectBase implements DataHandler {
      * Add an object to the database.
      *
      * @param session the session
-     * @param obj the object to addd
+     * @param obj the object to add
      */
     public void addDatabaseObject(ServerSession session, DbObject obj, DbObjectLock lock) {
         SystemOutline.createNode(SystemOutlineNode.addDatabaseObject);
