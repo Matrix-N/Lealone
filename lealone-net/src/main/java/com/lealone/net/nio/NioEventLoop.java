@@ -265,9 +265,10 @@ public class NioEventLoop implements NetEventLoop {
                     packetLength = 0;
                     attachment.packetLength = 0;
                 } else {
-                    if (packetLength != 0)
+                    if (packetLength != 0) {
+                        checkPacketLength(maxPacketSize, packetLength);
                         attachment.packetLength = packetLength; // 记下packetLength
-
+                    }
                     if (remaining == 0) {
                         inputBuffer.recycle(recyclePos);
                     } else {
