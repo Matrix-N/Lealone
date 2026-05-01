@@ -1917,4 +1917,8 @@ public class ServerSession extends SessionBase implements InternalSession {
     public SessionInitAck createSessionInitAck(int clientVersion) {
         return new SessionInitAck(clientVersion, isAutoCommit(), null, getRunMode(), false, 0);
     }
+
+    public Transaction getParentTransaction() {
+        return null;
+    }
 }
