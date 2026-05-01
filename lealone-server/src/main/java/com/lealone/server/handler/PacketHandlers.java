@@ -131,6 +131,10 @@ public class PacketHandlers {
             }
         }
 
+        protected Packet createAckPacket(PacketHandleTask task, Result result, int rowCount, int fetch) {
+            return new StatementQueryAck(result, rowCount, result.getVisibleColumnCount(), fetch);
+        }
+
         protected Packet createAckPacket(PacketHandleTask task, Result result, int rowCount,
                 int columnCount, int fetch) {
             return new StatementQueryAck(result, rowCount, columnCount, fetch);
