@@ -23,11 +23,15 @@ import com.lealone.db.result.Result;
 import com.lealone.db.scheduler.SchedulerThread;
 import com.lealone.db.session.ServerSession;
 import com.lealone.db.session.SessionStatus;
+import com.lealone.db.table.Table;
 import com.lealone.db.value.Value;
 import com.lealone.sql.executor.YieldableBase;
 import com.lealone.sql.executor.YieldableLocalUpdate;
 import com.lealone.sql.expression.Expression;
 import com.lealone.sql.expression.Parameter;
+import com.lealone.sql.optimizer.IndexCursor;
+import com.lealone.sql.optimizer.PlanItem;
+import com.lealone.sql.optimizer.TableFilter;
 import com.lealone.sql.query.YieldableLocalQuery;
 
 /**
@@ -292,6 +296,10 @@ public abstract class StatementBase implements PreparedSQLStatement, ParsedSQLSt
      * @return the execution plan
      */
     public String getPlanSQL() {
+        return getSQL();
+    }
+
+    public String getPlanSQL(boolean isDistributed) {
         return getSQL();
     }
 
@@ -597,5 +605,27 @@ public abstract class StatementBase implements PreparedSQLStatement, ParsedSQLSt
     @Override
     public YieldableBase<Integer> createYieldableUpdate(AsyncResultHandler<Integer> asyncHandler) {
         return new YieldableLocalUpdate(this, asyncHandler);
+    }
+
+    public TableFilter getTableFilter() {
+        return null;
+    }
+
+    public boolean isShardingMode() {
+        return false;
+    }
+
+    public YieldableBase<Result> createYieldableShardingQuery(int maxRows, boolean scrollable,
+            AsyncResultHandler<Result> asyncHandler) {
+        return null;
+    }
+
+    public YieldableBase<Integer> createYieldableShardingUpdate(
+            AsyncResultHandler<Integer> asyncHandler) {
+        return null;
+    }
+
+    public static PlanItem getDistributedBestPlanItem(ServerSession s, IndexCursor cursor, Table table) {
+        return null;
     }
 }

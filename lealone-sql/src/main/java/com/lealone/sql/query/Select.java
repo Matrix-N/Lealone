@@ -40,6 +40,7 @@ import com.lealone.sql.executor.YieldableBase;
 import com.lealone.sql.expression.Expression;
 import com.lealone.sql.expression.ExpressionColumn;
 import com.lealone.sql.expression.Parameter;
+import com.lealone.sql.expression.RowVersion;
 import com.lealone.sql.expression.SelectOrderBy;
 import com.lealone.sql.expression.condition.Comparison;
 import com.lealone.sql.expression.condition.ConditionAndOr;
@@ -249,6 +250,10 @@ public class Select extends Query {
             group = null;
         }
 
+        if (session.isReplicationMode()) {
+            expressions.add(new RowVersion());
+        }
+
         // map columns in select list and condition
         for (TableFilter f : filters) {
             mapColumns(f, 0);
@@ -404,7 +409,7 @@ public class Select extends Query {
 
         // 对min、max、count三个聚合函数的特殊优化
         if (condition == null && isGroupQuery && groupIndex == null && havingIndex < 0
-                && filters.size() == 1) {
+                && filters.size() == 1 && filters.get(0).getPageKeys() == null) {
             Table t = filters.get(0).getTable();
             isQuickAggregateQuery = accept(ExpressionVisitorFactory.getOptimizableVisitor(t));
         }
@@ -725,6 +730,14 @@ public class Select extends Query {
         return true;
     }
 
+    public Result queryGroupMerge() {
+        return new QMerge(this).queryGroupMerge();
+    }
+
+    public Result calculate(Result result, Select newSelect) {
+        return new QMerge(this).calculate(result, newSelect);
+    }
+
     @Override
     public Future<Result> getMetaData() {
         LocalResult result = new LocalResult(session, expressionArray, visibleColumnCount,
@@ -757,20 +770,41 @@ public class Select extends Query {
 
     @Override
     public String getPlanSQL() {
+        return getPlanSQL(false, false);
+    }
+
+    @Override
+    public String getPlanSQL(boolean isDistributed) {
+        if (isGroupQuery() || getLimit() != null || getOffset() != null)
+            return getPlanSQL(isDistributed, false);
+        else
+            return getSQL();
+    }
+
+    public String getPlanSQL(boolean isDistributed, boolean isMerged) {
         // can not use the field sqlStatement because the parameter
         // indexes may be incorrect: ? may be in fact ?2 for a subquery
         // but indexes may be set manually as well
         Expression[] exprList = expressions.toArray(new Expression[expressions.size()]);
         StatementBuilder buff = new StatementBuilder("SELECT");
+        buff.setDistributed(isDistributed);
+
         if (distinct) {
             buff.append(" DISTINCT");
         }
 
         int columnCount = visibleColumnCount;
+        if (isDistributed)
+            columnCount = expressions.size();
         for (int i = 0; i < columnCount; i++) {
+            if (isDistributed && havingIndex >= 0 && i == havingIndex)
+                continue;
+            StatementBuilder expr = new StatementBuilder();
+            expr.setDistributed(isDistributed);
             buff.appendExceptFirst(",");
             buff.append('\n');
-            buff.append(StringUtils.indent(exprList[i].getSQL(), 4, false));
+            exprList[i].getSQL(expr);
+            buff.append(StringUtils.indent(expr.toString(), 4, false));
         }
         buff.append("\nFROM ");
         TableFilter filter = topTableFilter;
@@ -794,9 +828,12 @@ public class Select extends Query {
             }
         }
         buff.setEnclosed(false);
-        if (condition != null) {
-            buff.append("\nWHERE ");
-            condition.getSQL(buff);
+        // 合并时可以忽略WHERE子句
+        if (!isMerged) {
+            if (condition != null) {
+                buff.append("\nWHERE ");
+                condition.getSQL(buff);
+            }
         }
         if (groupIndex != null) {
             buff.append("\nGROUP BY ");
@@ -816,6 +853,10 @@ public class Select extends Query {
                 g.getSQL(buff);
             }
         }
+
+        // 合并时可以忽略HAVING、ORDER BY等等子句
+        if (isMerged)
+            return buff.toString();
 
         if (having != null) {
             // could be set in addGlobalCondition
@@ -841,11 +882,19 @@ public class Select extends Query {
             }
         }
         if (limitExpr != null) {
-            buff.append("\nLIMIT ");
-            limitExpr.getSQL(buff);
-            if (offsetExpr != null) {
-                buff.append(" OFFSET ");
-                offsetExpr.getSQL(buff);
+            if (isDistributed) {
+                int limit = limitExpr.getValue(session).getInt();
+                if (offsetExpr != null)
+                    limit += offsetExpr.getValue(session).getInt();
+
+                buff.append("\nLIMIT ").append(limit);
+            } else {
+                buff.append("\nLIMIT ");
+                limitExpr.getSQL(buff);
+                if (offsetExpr != null) {
+                    buff.append(" OFFSET ");
+                    offsetExpr.getSQL(buff);
+                }
             }
         }
         if (sampleSizeExpr != null) {
@@ -1003,6 +1052,7 @@ public class Select extends Query {
         return priority;
     }
 
+    @Override
     public TableFilter getTableFilter() {
         return topTableFilter;
     }
@@ -1031,6 +1081,10 @@ public class Select extends Query {
     @Override
     public YieldableBase<Result> createYieldableQuery(int maxRows, boolean scrollable,
             AsyncResultHandler<Result> asyncHandler, ResultTarget target) {
-        return new YieldableSelect(this, maxRows, scrollable, asyncHandler, target);
+        // 查询语句的单机模式和复制模式一样
+        if (isShardingMode())
+            return createYieldableShardingQuery(maxRows, scrollable, asyncHandler);
+        else
+            return new YieldableSelect(this, maxRows, scrollable, asyncHandler, target);
     }
 }

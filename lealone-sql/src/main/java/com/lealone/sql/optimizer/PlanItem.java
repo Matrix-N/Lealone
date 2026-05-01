@@ -28,7 +28,7 @@ public class PlanItem {
         return cost;
     }
 
-    void setIndex(Index index) {
+    public void setIndex(Index index) {
         this.index = index;
     }
 

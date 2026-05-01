@@ -189,4 +189,8 @@ public abstract class YieldableBase<T> implements Yieldable<T> {
         }
         return false;
     }
+
+    public void reset() {
+        // do nothing
+    }
 }

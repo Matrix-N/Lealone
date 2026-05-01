@@ -279,6 +279,10 @@ public class SelectUnion extends Query implements ISelectUnion {
     @Override
     public YieldableBase<Result> createYieldableQuery(int maxRows, boolean scrollable,
             AsyncResultHandler<Result> asyncHandler, ResultTarget target) {
-        return new YieldableSelectUnion(this, maxRows, scrollable, asyncHandler, target);
+        // 查询语句的单机模式和复制模式一样
+        if (isShardingMode())
+            return createYieldableShardingQuery(maxRows, scrollable, asyncHandler);
+        else
+            return new YieldableSelectUnion(this, maxRows, scrollable, asyncHandler, target);
     }
 }

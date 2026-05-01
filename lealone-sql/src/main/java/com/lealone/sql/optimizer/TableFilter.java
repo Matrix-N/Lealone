@@ -8,6 +8,8 @@ package com.lealone.sql.optimizer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import com.lealone.common.exceptions.DbException;
@@ -27,10 +29,12 @@ import com.lealone.db.table.Table;
 import com.lealone.db.value.Value;
 import com.lealone.db.value.ValueNull;
 import com.lealone.sql.IExpression;
+import com.lealone.sql.StatementBase;
 import com.lealone.sql.expression.Expression;
 import com.lealone.sql.expression.condition.Comparison;
 import com.lealone.sql.expression.condition.ConditionAndOr;
 import com.lealone.sql.query.Select;
+import com.lealone.storage.page.PageKey;
 
 /**
  * A table filter represents a table that is used in a query. There is one such
@@ -153,7 +157,9 @@ public class TableFilter extends ColumnResolverBase {
      * @return the best plan item
      */
     public PlanItem getBestPlanItem(ServerSession s, int level) {
-        PlanItem item;
+        PlanItem item = StatementBase.getDistributedBestPlanItem(s, cursor, table);
+        if (item != null)
+            return item;
         if (indexConditions.isEmpty()) {
             item = new PlanItem();
             item.setIndex(table.getScanIndex(s));
@@ -963,6 +969,20 @@ public class TableFilter extends ColumnResolverBase {
         void accept(TableFilter f);
     }
 
+    private boolean indexConditionsParsed = false;
+
+    public Map<List<String>, List<PageKey>> getNodeToPageKeyMap(ServerSession session) {
+        if (!indexConditionsParsed) {
+            indexConditionsParsed = true;
+            cursor.parseIndexConditions(session, indexConditions);
+        }
+        return cursor.getNodeToPageKeyMap(session);
+    }
+
+    public List<PageKey> getPageKeys() {
+        return cursor.getPageKeys();
+    }
+
     @Override
     public Value getExpressionValue(Session session, IExpression e, Object data) {
         setSession((ServerSession) session);
@@ -1001,5 +1021,13 @@ public class TableFilter extends ColumnResolverBase {
         Arrays.sort(columnIndexes);
         this.columnIndexes = columnIndexes;
         return columnIndexes;
+    }
+
+    @Override
+    public int getRowVersion() {
+        Row r = get();
+        if (r == null)
+            return 0;
+        return r.getMetaVersion();
     }
 }

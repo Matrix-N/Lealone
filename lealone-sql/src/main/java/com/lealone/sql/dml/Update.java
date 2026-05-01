@@ -28,6 +28,8 @@ import com.lealone.sql.executor.YieldableBase;
 import com.lealone.sql.expression.Expression;
 import com.lealone.sql.expression.Parameter;
 import com.lealone.sql.expression.ValueExpression;
+import com.lealone.sql.expression.visitor.DeterministicVisitor;
+import com.lealone.sql.expression.visitor.ExpressionVisitorFactory;
 
 /**
  * This class represents the statement
@@ -81,6 +83,22 @@ public class Update extends UpDel {
         return buff.toString();
     }
 
+    public boolean isDeterministic() {
+        DeterministicVisitor dv = ExpressionVisitorFactory.getDeterministicVisitor();
+        if (condition != null) {
+            if (!dv.visitExpression(condition))
+                return false;
+        }
+        int size = columns.size();
+        for (int i = 0; i < size; i++) {
+            Column c = columns.get(i);
+            Expression e = expressionMap.get(c);
+            if (!dv.visitExpression(e))
+                return false;
+        }
+        return true;
+    }
+
     @Override
     public PreparedSQLStatement prepare() {
         int size = columns.size();
@@ -102,12 +120,18 @@ public class Update extends UpDel {
         }
         tableFilter.createColumnIndexes(columnSet);
         tableFilter.preparePlan(session, 1);
+
+        if (session.isReplicationMode())
+            session.setDeterministic(isDeterministic());
         return this;
     }
 
     @Override
     public YieldableBase<Integer> createYieldableUpdate(AsyncResultHandler<Integer> asyncHandler) {
-        return new YieldableUpdate(this, asyncHandler);
+        if (isShardingMode())
+            return createYieldableShardingUpdate(asyncHandler); // 处理sharding模式
+        else
+            return new YieldableUpdate(this, asyncHandler); // 处理单机模式、复制模式
     }
 
     private static class YieldableUpdate extends YieldableUpDel {

@@ -17,6 +17,8 @@ import com.lealone.db.value.Value;
 import com.lealone.sql.PreparedSQLStatement;
 import com.lealone.sql.SQLStatement;
 import com.lealone.sql.executor.YieldableBase;
+import com.lealone.sql.expression.visitor.DeterministicVisitor;
+import com.lealone.sql.expression.visitor.ExpressionVisitorFactory;
 
 /**
  * This class represents the statement
@@ -43,6 +45,15 @@ public class Delete extends UpDel {
         return buff.toString();
     }
 
+    public boolean isDeterministic() {
+        DeterministicVisitor dv = ExpressionVisitorFactory.getDeterministicVisitor();
+        if (condition != null) {
+            if (!dv.visitExpression(condition))
+                return false;
+        }
+        return true;
+    }
+
     @Override
     public PreparedSQLStatement prepare() {
         if (condition != null) {
@@ -52,12 +63,18 @@ public class Delete extends UpDel {
             tableFilter.createColumnIndexes(condition);
         }
         tableFilter.preparePlan(session, 1);
+
+        if (session.isReplicationMode())
+            session.setDeterministic(isDeterministic());
         return this;
     }
 
     @Override
     public YieldableBase<Integer> createYieldableUpdate(AsyncResultHandler<Integer> asyncHandler) {
-        return new YieldableDelete(this, asyncHandler);
+        if (isShardingMode())
+            return createYieldableShardingUpdate(asyncHandler); // 处理sharding模式
+        else
+            return new YieldableDelete(this, asyncHandler); // 处理单机模式、复制模式
     }
 
     private static class YieldableDelete extends YieldableUpDel {

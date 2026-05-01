@@ -16,7 +16,7 @@ public abstract class YieldableLoopUpdateBase extends YieldableUpdateBase {
 
     protected int updateCount;
     protected int loopCount;
-    private boolean loopEnd;
+    protected boolean loopEnd;
     private int pendingOperationCount;
 
     public YieldableLoopUpdateBase(StatementBase statement, AsyncResultHandler<Integer> asyncHandler) {
