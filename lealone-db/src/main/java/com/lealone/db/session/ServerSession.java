@@ -59,6 +59,7 @@ import com.lealone.db.value.ValueString;
 import com.lealone.server.protocol.AckPacket;
 import com.lealone.server.protocol.AckPacketHandler;
 import com.lealone.server.protocol.Packet;
+import com.lealone.server.protocol.session.SessionInitAck;
 import com.lealone.sql.ParsedSQLStatement;
 import com.lealone.sql.PreparedSQLStatement;
 import com.lealone.sql.PreparedSQLStatement.YieldableCommand;
@@ -1901,7 +1902,19 @@ public class ServerSession extends SessionBase implements InternalSession {
     public void setDeterministic(boolean deterministic) {
     }
 
+    public boolean isValid() {
+        return true;
+    }
+
     public boolean isReplicationMode() {
         return false;
+    }
+
+    public String getReplicationName() {
+        return null;
+    }
+
+    public SessionInitAck createSessionInitAck(int clientVersion) {
+        return new SessionInitAck(clientVersion, isAutoCommit(), null, getRunMode(), false, 0);
     }
 }

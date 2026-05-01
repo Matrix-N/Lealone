@@ -90,6 +90,10 @@ public class ServerSessionInfo extends LinkableBase<ServerSessionInfo>
             addTask(task);
     }
 
+    public void submitTask(PacketHandleTask task, int packetType) {
+        submitTask(task, true);
+    }
+
     public void submitYieldableCommand(int packetId, PreparedSQLStatement.Yieldable<?> yieldable) {
         YieldableCommand yieldableCommand = new YieldableCommand(packetId, yieldable, sessionId);
         session.setYieldableCommand(yieldableCommand);

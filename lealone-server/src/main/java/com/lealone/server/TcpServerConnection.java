@@ -89,7 +89,7 @@ public class TcpServerConnection extends AsyncServerConnection {
                 @SuppressWarnings("unchecked")
                 PacketHandler<Packet> handler = PacketHandlers.getHandler(packetType);
                 PacketHandleTask task = new PacketHandleTask(packetId, si, packet, handler, this);
-                si.submitTask(task, true);
+                si.submitTask(task, packetType);
             } else {
                 logger.warn("Unknow packet type: {}", packetType);
             }
@@ -144,30 +144,34 @@ public class TcpServerConnection extends AsyncServerConnection {
     }
 
     private void addSession(ServerSession session, int sessionId) {
-        // 每个sessionId对应一个SessionInfo，每个调度器可以负责多个SessionInfo， 但是一个SessionInfo只能由一个调度器负责。
-        // sessions这个字段并没有考虑放到调度器中，这样做的话光有sessionId作为key是不够的，
-        // 还需要当前连接做限定，因为每个连接可以接入多个客户端session，不同连接中的sessionId是可以相同的，
-        // 把sessions这个字段放在连接实例中可以减少并发访问的冲突。
-        session.setScheduler(scheduler);
-        session.setCache(new ExpiringMap<>(scheduler, tcpServer.getSessionTimeout(), cObject -> {
-            try {
-                cObject.value.close();
-            } catch (Exception e) {
-                logger.warn(e.getMessage());
-            }
-            return null;
-        }));
-        ServerSessionInfo si = new ServerSessionInfo(scheduler, this, session, sessionId,
-                tcpServer.getSessionTimeout());
-        sessions.put(sessionId, si);
-        scheduler.addSessionInfo(si);
+        // 在复制模式和sharding模式下，客户端可以从任何一个节点接入，
+        // 如果接入节点不是客户端想要访问的数据库的所在节点，就会给客户端返回数据库的所有节点，
+        // 此时，这样的session就是无效的，客户端会自动重定向到正确的节点。
+        if (session.isValid()) {
+            // 每个sessionId对应一个SessionInfo，每个调度器可以负责多个SessionInfo， 但是一个SessionInfo只能由一个调度器负责。
+            // sessions这个字段并没有考虑放到调度器中，这样做的话光有sessionId作为key是不够的，
+            // 还需要当前连接做限定，因为每个连接可以接入多个客户端session，不同连接中的sessionId是可以相同的，
+            // 把sessions这个字段放在连接实例中可以减少并发访问的冲突。
+            session.setScheduler(scheduler);
+            session.setCache(new ExpiringMap<>(scheduler, tcpServer.getSessionTimeout(), cObject -> {
+                try {
+                    cObject.value.close();
+                } catch (Exception e) {
+                    logger.warn(e.getMessage());
+                }
+                return null;
+            }));
+            ServerSessionInfo si = new ServerSessionInfo(scheduler, this, session, sessionId,
+                    tcpServer.getSessionTimeout());
+            sessions.put(sessionId, si);
+            scheduler.addSessionInfo(si);
+        }
     }
 
     private void sendSessionInitAck(SessionInit packet, int packetId, ServerSession session)
             throws Exception {
         out.writeResponseHeader(session, packetId, Session.STATUS_OK);
-        SessionInitAck ack = new SessionInitAck(packet.clientVersion, session.isAutoCommit(), null,
-                session.getRunMode(), false, 0);
+        SessionInitAck ack = session.createSessionInitAck(packet.clientVersion);
         ack.encode(out, packet.clientVersion);
         out.flush();
     }
@@ -196,8 +200,10 @@ public class TcpServerConnection extends AsyncServerConnection {
     }
 
     private void closeSession(ServerSessionInfo si, boolean isForLoop) {
+        ServerSession s = si.getSession();
+        if (s.getYieldableCommand() != null) // 复制模式中的操作没有执行完不能强行关闭
+            return;
         try {
-            ServerSession s = si.getSession();
             // 执行SHUTDOWN IMMEDIATELY时会模拟PowerOff，此时不必再执行后续操作
             if (!s.getDatabase().isPowerOff()) {
                 s.rollback();
@@ -228,6 +234,8 @@ public class TcpServerConnection extends AsyncServerConnection {
     private static int getStatus(ServerSession session) {
         if (session.isClosed()) {
             return Session.STATUS_CLOSED;
+        } else if (session.getReplicationName() != null) {
+            return Session.STATUS_REPLICATING;
         } else {
             return Session.STATUS_OK;
         }
