@@ -232,7 +232,6 @@ public class GlobalScheduler extends InternalSchedulerBase {
 
     private void executeNextStatement(AsyncCallback<?> ac) {
         int priority = PreparedSQLStatement.MIN_PRIORITY - 1; // 最小优先级减一，保证能取到最小的
-        YieldableCommand last = null;
         while (true) {
             if (netEventLoop.needWriteImmediately())
                 netEventLoop.write();
@@ -277,13 +276,6 @@ public class GlobalScheduler extends InternalSchedulerBase {
                 if (ac != null && ac.getAsyncResult() != null) {
                     return;
                 }
-                // 说明没有新的命令了，一直在轮循
-                if (last == c) {
-                    runPageOperationTasks();
-                    runSessionTasks();
-                    runMiscTasks();
-                }
-                last = c;
             } catch (Throwable t) {
                 ServerSessionInfo si = sessions.getHead();
                 while (si != null) {

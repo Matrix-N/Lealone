@@ -239,7 +239,6 @@ public class EmbeddedScheduler extends InternalSchedulerBase {
 
     private void executeNextStatement(AsyncCallback<?> ac) {
         int priority = PreparedSQLStatement.MIN_PRIORITY - 1; // 最小优先级减一，保证能取到最小的
-        YieldableCommand last = null;
         while (true) {
             YieldableCommand c;
             if (nextBestCommand != null) {
@@ -279,14 +278,6 @@ public class EmbeddedScheduler extends InternalSchedulerBase {
                 if (ac != null && ac.getAsyncResult() != null) {
                     return;
                 }
-                // 说明没有新的命令了，一直在轮循
-                if (last == c) {
-                    runPageOperationTasks();
-                    runPendingTransactions();
-                    runMiscTasks();
-                    runSessionTasks();
-                }
-                last = c;
             } catch (Throwable t) {
                 handleException("Failed to execute statement: " + c, t);
             }
