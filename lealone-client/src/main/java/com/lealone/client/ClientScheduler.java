@@ -19,6 +19,7 @@ import com.lealone.common.logging.Logger;
 import com.lealone.common.logging.LoggerFactory;
 import com.lealone.db.ConnectionInfo;
 import com.lealone.db.async.AsyncCallback;
+import com.lealone.db.async.AsyncPeriodicTask;
 import com.lealone.db.async.AsyncResult;
 import com.lealone.db.async.AsyncTask;
 import com.lealone.db.scheduler.Scheduler;
@@ -49,6 +50,8 @@ public class ClientScheduler extends SchedulerBase {
         netEventLoop.setNetClient(netClient);
         netEventLoop.setPreferBatchWrite(false);
         getThread().setDaemon(true);
+        addPeriodicTask(
+                new AsyncPeriodicTask(3000, () -> netClient.checkTimeout(System.currentTimeMillis())));
     }
 
     @Override
@@ -78,31 +81,13 @@ public class ClientScheduler extends SchedulerBase {
     }
 
     @Override
-    public void run() {
-        long lastTime = System.currentTimeMillis();
-        while (!stopped) {
-            if (netEventLoop.needWriteImmediately())
-                netEventLoop.write();
-
-            runMiscTasks();
-            runSessionTasks();
-            runEventLoop();
-
-            long currentTime = System.currentTimeMillis();
-            if (currentTime - lastTime > 1000) {
-                lastTime = currentTime;
-                checkTimeout(currentTime);
-            }
-        }
-        onStopped();
-    }
-
-    private void checkTimeout(long currentTime) {
-        try {
-            netClient.checkTimeout(currentTime);
-        } catch (Throwable t) {
-            logger.warn("Failed to checkTimeout", t);
-        }
+    protected void runTasks() {
+        if (netEventLoop.needWriteImmediately())
+            netEventLoop.write();
+        runMiscTasks();
+        runSessionTasks();
+        runEventLoop();
+        runPeriodicTasks();
     }
 
     @Override

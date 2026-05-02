@@ -67,20 +67,17 @@ public class GlobalScheduler extends InternalSchedulerBase {
     }
 
     @Override
-    public void run() {
-        while (!stopped) {
-            runRegisterAccepterTasks();
-            runSessionInitTasks();
-            runMiscTasks();
-            runPageOperationTasks();
-            runSessionTasks();
-            runPendingTransactions();
-            gcCompletedTasks();
-            executeNextStatement();
-            runPeriodicTasks();
-            runEventLoop();
-        }
-        onStopped();
+    protected void runTasks() {
+        runRegisterAccepterTasks();
+        runSessionInitTasks();
+        runMiscTasks();
+        runPageOperationTasks();
+        runSessionTasks();
+        runPendingTransactions();
+        gcCompletedTasks();
+        executeNextStatement();
+        runPeriodicTasks();
+        runEventLoop();
     }
 
     @Override

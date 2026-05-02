@@ -66,18 +66,15 @@ public class EmbeddedScheduler extends InternalSchedulerBase {
     }
 
     @Override
-    public void run() {
-        while (!stopped) {
-            runMiscTasks();
-            runSessionTasks();
-            runPageOperationTasks();
-            runPendingTransactions();
-            gcCompletedTasks();
-            executeNextStatement();
-            runPeriodicTasks();
-            doAwait();
-        }
-        onStopped();
+    protected void runTasks() {
+        runMiscTasks();
+        runSessionTasks();
+        runPageOperationTasks();
+        runPendingTransactions();
+        gcCompletedTasks();
+        executeNextStatement();
+        runPeriodicTasks();
+        doAwait();
     }
 
     @Override

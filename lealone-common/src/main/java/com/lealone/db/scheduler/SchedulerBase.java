@@ -114,6 +114,25 @@ public abstract class SchedulerBase implements Scheduler {
         return stopped;
     }
 
+    protected abstract void runTasks();
+
+    protected void handleException(Throwable t) {
+        // int errorCode = DbException.convert(t).getErrorCode();
+        getLogger().warn(getName() + ".runTasks exception", t);
+    }
+
+    @Override
+    public void run() {
+        while (!stopped) {
+            try {
+                runTasks();
+            } catch (Throwable t) {
+                handleException(t);
+            }
+        }
+        onStopped();
+    }
+
     @Override
     public void wakeUp() {
     }
