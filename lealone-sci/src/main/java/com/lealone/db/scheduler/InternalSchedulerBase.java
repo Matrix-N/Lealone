@@ -145,8 +145,8 @@ public abstract class InternalSchedulerBase extends SchedulerBase implements Int
             if (!pt.isCompleted()) {
                 try {
                     pt.getTransaction().asyncCommitComplete();
-                } catch (Throwable e) {
-                    getLogger().warn("Failed to run pending transaction: " + pt, e);
+                } catch (Throwable t) {
+                    handleException("Failed to run pending transaction: " + pt, t);
                 }
             }
             pt = pt.getNext();
@@ -210,8 +210,8 @@ public abstract class InternalSchedulerBase extends SchedulerBase implements Int
                         taskManagers.setHead(task);
                     else
                         last.next = task;
-                } catch (Throwable e) {
-                    getLogger().warn("Failed to run task: " + task, e);
+                } catch (Throwable t) {
+                    handleException("Failed to gc completed task: " + task, t);
                 }
                 taskManagers.decrementSize();
             }

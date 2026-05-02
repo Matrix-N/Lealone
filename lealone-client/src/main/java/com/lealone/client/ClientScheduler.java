@@ -151,10 +151,10 @@ public class ClientScheduler extends SchedulerBase {
             scheduler.setCurrentSession(session);
             try {
                 task.run();
-            } catch (Throwable e) {
-                logger.warn(
+            } catch (Throwable t) {
+                scheduler.handleException(
                         "Failed to run async session task: " + task + ", session id: " + getSessionId(),
-                        e);
+                        t);
             } finally {
                 scheduler.setCurrentSession(old);
             }
@@ -185,7 +185,7 @@ public class ClientScheduler extends SchedulerBase {
             netEventLoop.select();
             netEventLoop.handleSelectedKeys();
         } catch (Throwable t) {
-            getLogger().warn("Failed to runEventLoop", t);
+            handleException("Failed to runEventLoop", t);
         }
     }
 

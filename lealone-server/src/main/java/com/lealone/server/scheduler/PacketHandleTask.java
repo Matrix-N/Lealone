@@ -5,14 +5,13 @@
  */
 package com.lealone.server.scheduler;
 
-import java.sql.SQLException;
-
 import com.lealone.common.logging.Logger;
 import com.lealone.common.logging.LoggerFactory;
 import com.lealone.db.session.ServerSession;
 import com.lealone.server.TcpServerConnection;
 import com.lealone.server.handler.PacketHandler;
 import com.lealone.server.protocol.Packet;
+import com.lealone.server.protocol.PacketType;
 import com.lealone.sql.PreparedSQLStatement;
 
 public class PacketHandleTask extends LinkableTask {
@@ -43,15 +42,12 @@ public class PacketHandleTask extends LinkableTask {
             if (ack != null) {
                 sendResponse(ack);
             }
-        } catch (Throwable e) {
+        } catch (Throwable t) {
             String message = "Failed to handle packet, packetId: {}, packetType: {}, sessionId: {}";
-            if (e.getCause() instanceof SQLException) {
-                if (logger.isDebugEnabled())
-                    logger.debug(message, e, packetId, packet.getType(), si.getSessionId());
-            } else {
-                logger.error(message, e, packetId, packet.getType(), si.getSessionId());
-            }
-            sendError(e);
+            session.autoFixBugIfNeeded(logger, message, t, packetId, packet.getType(),
+                    si.getSessionId());
+            if (packet.getAckType() != PacketType.VOID)
+                sendError(t);
         }
     }
 

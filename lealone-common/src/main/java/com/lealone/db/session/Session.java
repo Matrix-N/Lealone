@@ -6,7 +6,9 @@
 package com.lealone.db.session;
 
 import java.io.Closeable;
+import java.sql.SQLException;
 
+import com.lealone.common.logging.Logger;
 import com.lealone.common.trace.Trace;
 import com.lealone.common.trace.TraceModuleType;
 import com.lealone.common.trace.TraceObjectType;
@@ -156,5 +158,16 @@ public interface Session extends Closeable {
 
     default boolean isServer() {
         return false;
+    }
+
+    default void autoFixBugIfNeeded(Logger logger, Object message, Throwable t, Object... params) {
+        if (logger != null) {
+            if (t.getCause() instanceof SQLException) {
+                if (logger.isDebugEnabled())
+                    logger.debug(message, t, params);
+            } else {
+                logger.error(message, t, params);
+            }
+        }
     }
 }

@@ -116,9 +116,17 @@ public abstract class SchedulerBase implements Scheduler {
 
     protected abstract void runTasks();
 
-    protected void handleException(Throwable t) {
-        // int errorCode = DbException.convert(t).getErrorCode();
-        getLogger().warn(getName() + ".runTasks exception", t);
+    @Override
+    public void handleException(Object message, Throwable t) {
+        handleException(message, t, true);
+    }
+
+    @Override
+    public void handleException(Object message, Throwable t, boolean autoFixBug) {
+        getLogger().warn(message, t);
+        if (autoFixBug && getCurrentSession() != null) {
+            getCurrentSession().autoFixBugIfNeeded(null, message, t);
+        }
     }
 
     @Override
@@ -127,7 +135,7 @@ public abstract class SchedulerBase implements Scheduler {
             try {
                 runTasks();
             } catch (Throwable t) {
-                handleException(t);
+                handleException(getName() + ".runTasks exception", t);
             }
         }
         onStopped();
@@ -178,8 +186,8 @@ public abstract class SchedulerBase implements Scheduler {
             while (task != null) {
                 try {
                     task.run();
-                } catch (Throwable e) {
-                    getLogger().warn("Failed to run misc task: " + task, e);
+                } catch (Throwable t) {
+                    handleException("Failed to run misc task: " + task, t);
                 }
                 task = miscTasks.poll();
             }
@@ -205,8 +213,8 @@ public abstract class SchedulerBase implements Scheduler {
         while (task != null) {
             try {
                 task.run();
-            } catch (Throwable e) {
-                getLogger().warn("Failed to run periodic task: " + task, e);
+            } catch (Throwable t) {
+                handleException("Failed to run periodic task: " + task, t);
             }
             task = task.next;
         }

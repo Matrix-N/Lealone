@@ -149,13 +149,13 @@ class ConsoleLogger implements Logger {
     }
 
     private void log(Object message, Throwable t) {
-        log(message);
+        System.err.println(message);
         if (t != null)
             DbException.getCause(t).printStackTrace(System.err);
     }
 
     private void log(Object message, Throwable t, Object... params) {
-        log(message, params);
+        System.err.println(Logger.format(message, params));
         if (t != null)
             DbException.getCause(t).printStackTrace(System.err);
     }

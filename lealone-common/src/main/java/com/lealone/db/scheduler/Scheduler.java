@@ -67,4 +67,8 @@ public interface Scheduler extends AsyncTaskHandler, Runnable {
     NetBuffer getInputBuffer();
 
     NetBuffer getOutputBuffer();
+
+    void handleException(Object message, Throwable t);
+
+    void handleException(Object message, Throwable t, boolean autoFixBug);
 }

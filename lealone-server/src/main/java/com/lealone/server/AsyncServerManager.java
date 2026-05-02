@@ -5,7 +5,6 @@
  */
 package com.lealone.server;
 
-import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.util.ArrayList;
 
@@ -84,9 +83,10 @@ public class AsyncServerManager {
                         asyncServer.getProtocolServer());
                 asyncServer.setSelectionKey(key);
                 needRegisterAccepter = false;
-            } catch (ClosedChannelException e) {
-                currentScheduler.getLogger()
-                        .warn("Failed to register server channel: " + asyncServer.getServerChannel());
+            } catch (Throwable t) {
+                currentScheduler.handleException(
+                        "Failed to register server channel: " + asyncServer.getServerChannel(), t,
+                        false);
             }
         }
     }

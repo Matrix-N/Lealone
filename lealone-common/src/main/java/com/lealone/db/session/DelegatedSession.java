@@ -5,6 +5,7 @@
  */
 package com.lealone.db.session;
 
+import com.lealone.common.logging.Logger;
 import com.lealone.common.trace.Trace;
 import com.lealone.common.trace.TraceModuleType;
 import com.lealone.common.trace.TraceObjectType;
@@ -205,5 +206,10 @@ public class DelegatedSession implements Session {
     @Override
     public boolean isServer() {
         return session.isServer();
+    }
+
+    @Override
+    public void autoFixBugIfNeeded(Logger logger, Object message, Throwable t, Object... params) {
+        session.autoFixBugIfNeeded(logger, message, t, params);
     }
 }

@@ -132,8 +132,8 @@ public class EmbeddedScheduler extends InternalSchedulerBase {
                 } else if (result == PageOperationResult.RETRY) {
                     continue;
                 }
-            } catch (Throwable e) {
-                getLogger().warn("Failed to run page operation: " + po, e);
+            } catch (Throwable t) {
+                handleException("Failed to run page operation: " + po, t);
             }
             pageOperationSize.decrementAndGet();
             po = pageOperations.poll();
@@ -188,10 +188,10 @@ public class EmbeddedScheduler extends InternalSchedulerBase {
             scheduler.setCurrentSession(session);
             try {
                 task.run();
-            } catch (Throwable e) {
-                logger.warn(
+            } catch (Throwable t) {
+                scheduler.handleException(
                         "Failed to run async session task: " + task + ", session id: " + getSessionId(),
-                        e);
+                        t);
             } finally {
                 scheduler.setCurrentSession(old);
             }
@@ -287,8 +287,8 @@ public class EmbeddedScheduler extends InternalSchedulerBase {
                     runSessionTasks();
                 }
                 last = c;
-            } catch (Throwable e) {
-                logger.warn("Failed to statement: " + c, e);
+            } catch (Throwable t) {
+                handleException("Failed to execute statement: " + c, t);
             }
         }
     }

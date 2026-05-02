@@ -120,8 +120,9 @@ public class ServerSessionInfo extends LinkableBase<ServerSessionInfo>
         scheduler.setCurrentSession(session);
         try {
             task.run();
-        } catch (Throwable e) {
-            logger.warn("Failed to run async session task: " + task + ", session id: " + sessionId, e);
+        } catch (Throwable t) {
+            scheduler.handleException(
+                    "Failed to run async session task: " + task + ", session id: " + sessionId, t);
         } finally {
             scheduler.setCurrentSession(old);
         }
