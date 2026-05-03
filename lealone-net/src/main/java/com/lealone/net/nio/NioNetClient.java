@@ -59,7 +59,8 @@ public class NioNetClient extends NetClientBase {
                 }
                 writableChannel.setAsyncConnection(conn);
                 conn.setInetSocketAddress(inetSocketAddress);
-                addConnection(inetSocketAddress, conn);
+                if (connectionManager == null || !connectionManager.addConnectionLazy())
+                    addConnection(inetSocketAddress, conn);
                 ac.setAsyncResult(conn);
             } else {
                 NetEventLoop eventLoop = (NetEventLoop) scheduler.getNetEventLoop();
@@ -107,7 +108,9 @@ public class NioNetClient extends NetClientBase {
             writableChannel.setAsyncConnection(conn);
             eventLoop.addChannel(writableChannel);
             conn.setInetSocketAddress(attachment.inetSocketAddress);
-            addConnection(attachment.inetSocketAddress, conn);
+            if (attachment.connectionManager == null
+                    || !attachment.connectionManager.addConnectionLazy())
+                addConnection(attachment.inetSocketAddress, conn);
             if (attachment.ac != null) {
                 attachment.ac.setAsyncResult(conn);
             }
