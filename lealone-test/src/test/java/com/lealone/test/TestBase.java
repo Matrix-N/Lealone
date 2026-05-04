@@ -16,8 +16,6 @@ import java.util.Map;
 import org.junit.Assert;
 
 import com.lealone.common.exceptions.DbException;
-import com.lealone.common.logging.LoggerFactory;
-import com.lealone.common.logging.impl.ConsoleLoggerFactory;
 import com.lealone.common.trace.TraceSystem;
 import com.lealone.db.ConnectionSetting;
 import com.lealone.db.Constants;
@@ -69,18 +67,9 @@ public class TestBase extends Assert {
 
         if (Config.getProperty("default.storage.engine") == null)
             Config.setProperty("default.storage.engine", getDefaultStorageEngineName());
-
-        setConsoleLoggerFactory();
     }
 
     public TestBase() {
-    }
-
-    // 这个在eclipse的console下输出结果并不快，反而会拖慢启动速度，在cmd窗口下才有效果
-    // 但是首次执行LoggerFactory.getLogger(String)很快
-    public static void setConsoleLoggerFactory() {
-        System.setProperty(LoggerFactory.LOGGER_FACTORY_CLASS_NAME,
-                ConsoleLoggerFactory.class.getName());
     }
 
     public static String getDefaultStorageEngineName() {

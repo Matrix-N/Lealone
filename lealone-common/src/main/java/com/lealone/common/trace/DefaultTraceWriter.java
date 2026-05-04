@@ -99,11 +99,18 @@ public class DefaultTraceWriter implements TraceWriter {
     @Override
     public void write(int level, String module, String s, Throwable t) {
         if (level <= levelSystemOut || level > this.levelMax) {
-            // level <= levelSystemOut: the system out level is set higher
-            // level > this.level: the level for this module is set higher
-            sysOut.println(format(module, s));
-            if (t != null && level <= TraceSystem.DEBUG) {
-                t.printStackTrace(sysOut);
+            if (module == null) {
+                PrintStream ps = level == TraceSystem.ERROR ? System.err : sysOut;
+                ps.println(s);
+                if (t != null)
+                    DbException.getCause(t).printStackTrace(ps);
+            } else {
+                // level <= levelSystemOut: the system out level is set higher
+                // level > this.level: the level for this module is set higher
+                sysOut.println(format(module, s));
+                if (t != null && level <= TraceSystem.DEBUG) {
+                    t.printStackTrace(sysOut);
+                }
             }
         }
         if (fileName != null) {

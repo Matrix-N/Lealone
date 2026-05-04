@@ -8,8 +8,7 @@ package com.lealone.common.logging;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.lealone.common.logging.impl.ConsoleLoggerFactory;
-import com.lealone.common.logging.impl.FileLoggerFactory;
+import com.lealone.common.logging.impl.DefaultLoggerFactory;
 import com.lealone.common.util.Utils;
 
 public abstract class LoggerFactory {
@@ -21,11 +20,7 @@ public abstract class LoggerFactory {
     private static LoggerFactory loggerFactory = getLoggerFactory();
 
     public static void init(Map<String, String> parameters) {
-        String type = parameters.get("type");
-        if ("file".contentEquals(type))
-            loggerFactory = new FileLoggerFactory(parameters);
-        else
-            loggerFactory = new ConsoleLoggerFactory();
+        loggerFactory = new DefaultLoggerFactory(parameters);
     }
 
     private static LoggerFactory getLoggerFactory() {
@@ -44,7 +39,7 @@ public abstract class LoggerFactory {
                         "Error instantiating class \"" + factoryClassName + "\"", e);
             }
         } else {
-            return new ConsoleLoggerFactory();
+            return new DefaultLoggerFactory(null);
         }
     }
 

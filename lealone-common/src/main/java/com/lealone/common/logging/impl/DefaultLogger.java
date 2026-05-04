@@ -8,11 +8,11 @@ package com.lealone.common.logging.impl;
 import com.lealone.common.logging.Logger;
 import com.lealone.common.trace.Trace;
 
-class FileLogger implements Logger {
+class DefaultLogger implements Logger {
 
-    private Trace trace;
+    private final Trace trace;
 
-    FileLogger(Trace trace) {
+    DefaultLogger(Trace trace) {
         this.trace = trace;
     }
 
