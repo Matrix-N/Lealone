@@ -180,16 +180,28 @@ public class NetNode implements Comparable<NetNode> {
 
     public void serialize(DataOutput out) throws IOException {
         byte[] bytes = getAddress(); // Inet4Address是4个字节，Inet6Address是16个字节
-        out.writeByte(bytes.length);
-        out.write(bytes);
-        out.writeInt(getPort());
+        if (getPort() == Constants.DEFAULT_P2P_PORT) {
+            out.writeByte(-bytes.length);
+            out.write(bytes);
+        } else {
+            out.writeByte(bytes.length);
+            out.write(bytes);
+            out.writeInt(getPort());
+        }
     }
 
     public static NetNode deserialize(DataInput in) throws IOException {
-        byte[] bytes = new byte[in.readByte()];
-        in.readFully(bytes, 0, bytes.length);
-        int port = in.readInt();
-        return new NetNode(InetAddress.getByAddress(bytes), port);
+        byte length = in.readByte();
+        if (length < 0) {
+            byte[] bytes = new byte[-length];
+            in.readFully(bytes, 0, -length);
+            return new NetNode(InetAddress.getByAddress(bytes), Constants.DEFAULT_P2P_PORT);
+        } else {
+            byte[] bytes = new byte[length];
+            in.readFully(bytes, 0, length);
+            int port = in.readInt();
+            return new NetNode(InetAddress.getByAddress(bytes), port);
+        }
     }
 
     public static boolean isLocalTcpNode(String hostId) {
