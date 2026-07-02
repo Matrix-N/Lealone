@@ -759,8 +759,6 @@ public class NioSocketWrapper extends SocketWrapper<NioChannel> {
             boolean calledByProcessor) {
         NioChannel sc = null;
         try {
-            socketWrapper.getSocket().batchWrite();
-
             unreg(sk, socketWrapper, sk.readyOps());
             SendfileData sd = socketWrapper.getSendfileData();
 
@@ -967,5 +965,14 @@ public class NioSocketWrapper extends SocketWrapper<NioChannel> {
                     + hasEvents + "; eval="
                     + ((now < prevExp) && (keyCount > 0 || hasEvents) && (!isClosed())));
         }
+    }
+
+    @Override
+    protected void flushBlocking() throws IOException {
+        if (getSocket() == NioChannel.CLOSED_NIO_CHANNEL) {
+            throw new ClosedChannelException();
+        }
+        getSocket().write((ByteBuffer) null);
+        updateLastWrite();
     }
 }

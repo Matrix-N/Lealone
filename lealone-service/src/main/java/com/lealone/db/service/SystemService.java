@@ -30,17 +30,6 @@ public class SystemService {
         }
     }
 
-    public static String execute(String serviceName, String methodName, Map<String, Object> methodArgs) {
-        serviceName = serviceName.toUpperCase();
-        methodName = methodName.toUpperCase();
-        String[] a = StringUtils.arraySplit(serviceName, '.');
-        if (a.length == 3) {
-            return execute(a[0], a[1], methodName, methodArgs);
-        } else {
-            throw new RuntimeException("service " + serviceName + " not found");
-        }
-    }
-
     public static String execute(String dbName, String schemaName, String methodName, String json) {
         switch (methodName) {
         case "LOAD_SERVICES":
@@ -54,6 +43,7 @@ public class SystemService {
 
     public static String execute(String dbName, String schemaName, String methodName,
             Map<String, Object> methodArgs) {
+        methodName = methodName.toUpperCase();
         switch (methodName) {
         case "LOAD_SERVICES":
             Object serviceNames = methodArgs.get("serviceNames");
@@ -93,7 +83,7 @@ public class SystemService {
     private static String loadServices(String dbName, String schemaName, String serviceNames) {
         JsonArray ja = new JsonArray();
         Database db = LealoneDatabase.getInstance().getDatabase(dbName);
-        for (String serviceName : serviceNames.split(",")) {
+        for (String serviceName : StringUtils.arraySplit(serviceNames, ',')) {
             Service service = Service.getService(null, db, schemaName, serviceName);
             JsonArray jaMethods = new JsonArray();
             for (ServiceMethod serviceMethod : service.getServiceMethods()) {

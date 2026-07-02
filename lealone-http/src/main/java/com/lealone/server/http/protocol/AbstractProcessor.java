@@ -28,11 +28,11 @@ import com.lealone.server.http.util.ExceptionUtils;
 import com.lealone.server.http.util.buf.ByteChunk;
 import com.lealone.server.http.util.buf.MessageBytes;
 import com.lealone.server.http.util.log.UserDataHelper;
+import com.lealone.server.http.util.net.AbstractEndpoint.Handler.SocketState;
 import com.lealone.server.http.util.net.DispatchType;
 import com.lealone.server.http.util.net.SSLSupport;
 import com.lealone.server.http.util.net.SocketEvent;
 import com.lealone.server.http.util.net.SocketWrapper;
-import com.lealone.server.http.util.net.AbstractEndpoint.Handler.SocketState;
 import com.lealone.server.http.util.res.StringManager;
 import com.lealone.server.servlet.RequestDispatcher;
 import com.lealone.server.servlet.ServletConnection;
@@ -164,6 +164,7 @@ public abstract class AbstractProcessor extends AbstractProcessorLight implement
      */
     protected void execute(Runnable runnable) {
         runnable.run();
+        // new Thread(runnable).start();
     }
 
     @Override

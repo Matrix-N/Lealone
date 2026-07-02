@@ -8,6 +8,8 @@ package com.lealone.orm;
 import com.lealone.db.ConnectionInfo;
 import com.lealone.db.Constants;
 import com.lealone.db.Database;
+import com.lealone.db.scheduler.SchedulerFactory;
+import com.lealone.db.scheduler.SchedulerThread;
 import com.lealone.db.session.ServerSession;
 import com.lealone.db.table.Table;
 
@@ -64,10 +66,18 @@ public class ModelTable {
         return table;
     }
 
+    private static ServerSession[] sessions = new ServerSession[SchedulerFactory
+            .getDefaultSchedulerFactory() == null ? Runtime.getRuntime().availableProcessors()
+                    : SchedulerFactory.getDefaultSchedulerFactory().getSchedulerCount()];
+
     private void bindTable() {
         // 沒有初始化，或已经无效了，比如drop table后还被引用
         if (table == null || table.isInvalid()) {
-            session = (ServerSession) new ConnectionInfo(getUrl()).createSession();
+            int id = SchedulerThread.currentScheduler().getId();
+            if (sessions[id] == null) {
+                sessions[id] = (ServerSession) new ConnectionInfo(getUrl()).createSession();
+            }
+            session = sessions[id];
             Database db = session.getDatabase();
             table = db.getSchema(session, schemaName).getTableOrView(session, tableName);
         }

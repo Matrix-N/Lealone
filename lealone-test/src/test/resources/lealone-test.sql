@@ -10,9 +10,9 @@ set lealone (
         level: 'info'
     ),
     scheduler: (
-        scheduler_count: 2,
+        scheduler_count: 8,
         prefer_batch_write: false,
-        max_packet_count_per_loop: 10, -- 每次循环最多读取多少个数据包，默认20
+        max_packet_count_per_loop: 100, -- 每次循环最多读取多少个数据包，默认20
     ),
     storage_engine: (
         name: 'AOSE',
@@ -41,12 +41,10 @@ set lealone (
     ),
     protocol_server_engine: (
         name: 'HTTP',
-        enabled: true,
+        enabled: false,
         port: 8080,
         allow_others: true,
         ssl: false,
-        session_timeout: -1,
-        --web_root: 'src/test/resources/http',
-        --router: 'com.lealone.test.http.HttpServerStart'
+        session_timeout: -1
     )
 )

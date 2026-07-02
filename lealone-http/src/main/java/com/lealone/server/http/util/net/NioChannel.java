@@ -23,8 +23,8 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 import java.nio.channels.SocketChannel;
-import java.util.concurrent.atomic.AtomicInteger;
 
+import com.lealone.db.DataBuffer;
 import com.lealone.server.http.util.res.StringManager;
 
 /**
@@ -121,110 +121,32 @@ public class NioChannel implements ByteChannel, ScatteringByteChannel, Gathering
      */
     @Override
     public int write(ByteBuffer src) throws IOException {
-        checkInterruptStatus();
-        if (!src.hasRemaining()) {
-            // Nothing left to write
-            return 0;
-        }
-        // return sc.write(src);
-
-        // // long t1 = System.nanoTime();
-        // int count = sc.write(src);
-        // // System.out.println("write, size: " + count + ", count: " + this.count.incrementAndGet()
-        // // + ", time: " + (System.nanoTime() - t1) / 1000 + ", thread: "
-        // // + Thread.currentThread().getName());
-        // return count;
-
-        int size = src.remaining();
-        if (size >= maxSize) {
-            batchWrite(src);
-        } else {
-            writeBuffer.put(src);
-            if (++batchCount > 100 || writeBuffer.position() > maxSize) {
-                batchWrite(writeBuffer);
-            }
-        }
-        return size;
+        // checkInterruptStatus();
+        // if (!src.hasRemaining()) {
+        // // Nothing left to write
+        // return 0;
+        // }
+        // // return sc.write(src);
+        return socketWrapper.flush();
     }
-
-    AtomicInteger count = new AtomicInteger();
 
     @Override
     public long write(ByteBuffer[] srcs) throws IOException {
         return write(srcs, 0, srcs.length);
     }
 
-    private int batchCount;
-    private int maxSize = 128 * 1024;
-    private ByteBuffer writeBuffer = ByteBuffer.allocateDirect(maxSize);
-
-    // 适合header("Connection", "close")
-    // private int maxSize = 1 * 1024;
-    // private ByteBuffer writeBuffer = ByteBuffer.allocate(maxSize * 2);
-
     @Override
     public long write(ByteBuffer[] srcs, int offset, int length) throws IOException {
-        // return write1(srcs, offset, length);
-        return write2(srcs, offset, length);
-    }
-
-    public long write1(ByteBuffer[] srcs, int offset, int length) throws IOException {
-        checkInterruptStatus();
-        // return sc.write(srcs, offset, length);
+        socketWrapper.startWrite();
         long total = 0;
-        for (int i = 0, len = srcs.length; i < len; i++)
+        DataBuffer dataBuffer = socketWrapper.getGlobalWritableChannel().getGlobalBuffer()
+                .getDataBuffer();
+        for (int i = offset; i < length; i++) {
             total += srcs[i].remaining();
-        long remaining = total;
-        while (remaining > 0) {
-            // long t1 = System.nanoTime();
-            long count = sc.write(srcs, offset, length);
-            // if (count == 0)
-            // System.out.println("batchWrite, size: " + count + ", total: " + total + ", count: "
-            // + this.count.incrementAndGet() + ", time: " + (System.nanoTime() - t1));
-            remaining -= count;
+            dataBuffer.put(srcs[i]);
         }
+        socketWrapper.flush();
         return total;
-    }
-
-    public long write2(ByteBuffer[] srcs, int offset, int length) throws IOException {
-        checkInterruptStatus();
-        long total = 0;
-        for (int i = 0, len = srcs.length; i < len; i++)
-            total += srcs[i].remaining();
-        if (total >= maxSize) {
-            batchCount = 0;
-            sc.write(srcs, offset, length);
-        } else {
-            for (int i = 0, len = srcs.length; i < len; i++)
-                writeBuffer.put(srcs[i]);
-            if (++batchCount > 100 || writeBuffer.position() > maxSize) {
-                batchWrite(writeBuffer);
-            }
-        }
-        return total;
-    }
-
-    public void batchWrite() throws IOException {
-        if (socketWrapper != null && socketWrapper.isContinueParsing())
-            return;
-        // if (batchCount > 2)
-        // System.out.println("batchCount: " + batchCount);
-        if (batchCount > 0) {
-            batchWrite(writeBuffer);
-        }
-    }
-
-    private void batchWrite(ByteBuffer buff) throws IOException {
-        buff.flip();
-        // long t1 = System.nanoTime();
-        // long size = buff.remaining();
-        while (buff.remaining() > 0)
-            sc.write(buff);
-        buff.clear();
-        // System.out.println("batchWrite, size: " + size + ", batchCount: " + batchCount + ", count: "
-        // + this.count.incrementAndGet() + ", time: " + (System.nanoTime() - t1));
-
-        batchCount = 0;
     }
 
     /**
@@ -238,11 +160,7 @@ public class NioChannel implements ByteChannel, ScatteringByteChannel, Gathering
      */
     @Override
     public int read(ByteBuffer dst) throws IOException {
-        // return sc.read(dst);
-        // long t1 = System.nanoTime();
-        int c = sc.read(dst);
-        // System.out.println("read: " + (System.nanoTime() - t1) / 1000);
-        return c;
+        return sc.read(dst);
     }
 
     @Override
@@ -252,11 +170,7 @@ public class NioChannel implements ByteChannel, ScatteringByteChannel, Gathering
 
     @Override
     public long read(ByteBuffer[] dsts, int offset, int length) throws IOException {
-        // return sc.read(dsts, offset, length);
-        // long t1 = System.nanoTime();
-        long c = sc.read(dsts, offset, length);
-        // System.out.println("read: " + (System.nanoTime() - t1) / 1000);
-        return c;
+        return sc.read(dsts, offset, length);
     }
 
     public SocketBufferHandler getBufHandler() {
@@ -386,5 +300,4 @@ public class NioChannel implements ByteChannel, ScatteringByteChannel, Gathering
             return "Closed NioChannel";
         }
     };
-
 }

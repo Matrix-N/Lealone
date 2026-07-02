@@ -570,8 +570,10 @@ public class TransferOutputStream implements NetOutputStream {
         }
 
         // 插件用到这个api
-        public void flush() {
-            flush(startPos, buffer.position());
+        public int flush() {
+            int endPos = buffer.position();
+            flush(startPos, endPos);
+            return endPos - startPos;
         }
 
         public void flush(int start, int end) {

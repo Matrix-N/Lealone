@@ -125,11 +125,6 @@ public class SecureNioChannel extends NioChannel {
      * @throws IOException An IO error occurred writing data
      */
     protected boolean flush(ByteBuffer buf) throws IOException {
-        return flush1(buf);
-        // return flush2(buf);
-    }
-
-    protected boolean flush1(ByteBuffer buf) throws IOException {
         int remaining = buf.remaining();
         if (remaining > 0) {
             return (sc.write(buf) >= remaining);
@@ -137,57 +132,6 @@ public class SecureNioChannel extends NioChannel {
             return true;
         }
     }
-
-    protected boolean flush2(ByteBuffer buf) throws IOException {
-        if (!handshakeComplete) {
-            int remaining = buf.remaining();
-            if (remaining > 0) {
-                return (sc.write(buf) >= remaining);
-            } else {
-                return true;
-            }
-        }
-
-        long total = buf.remaining();
-        if (total >= maxSize) {
-            batchCount = 0;
-            sc.write(buf);
-        } else {
-            writeBuffer.put(buf);
-            if (++batchCount > 100 || writeBuffer.position() > maxSize) {
-                batchWrite(writeBuffer);
-            }
-        }
-        return true;
-    }
-
-    @Override
-    public void batchWrite() throws IOException {
-        // if (batchCount > 2)
-        // System.out.println("batchCount: " + batchCount);
-        if (batchCount > 0) {
-            batchWrite(writeBuffer);
-        }
-    }
-
-    private void batchWrite(ByteBuffer buff) throws IOException {
-        // long t1 = System.nanoTime();
-        buff.flip();
-        count.set(buff.remaining());
-        while (buff.remaining() > 0)
-            sc.write(buff);
-        buff.clear();
-        // System.out.println("batchWrite: " + (System.nanoTime() - t1) / 1000);
-
-        // System.out.println("batchWrite, size: " + count + ", batchCount: " + batchCount + ", time: "
-        // + (System.nanoTime() - t1));
-
-        batchCount = 0;
-    }
-
-    private int batchCount;
-    private int maxSize = 128 * 1024;
-    private ByteBuffer writeBuffer = ByteBuffer.allocateDirect(maxSize * 2);
 
     /**
      * Performs SSL handshake, non-blocking, but performs NEED_TASK on the same thread. Hence, you should never call

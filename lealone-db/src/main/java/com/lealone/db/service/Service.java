@@ -33,7 +33,6 @@ import com.lealone.db.Database;
 import com.lealone.db.DbObjectType;
 import com.lealone.db.LealoneDatabase;
 import com.lealone.db.SysProperties;
-import com.lealone.db.api.ErrorCode;
 import com.lealone.db.auth.Right;
 import com.lealone.db.constraint.ConstraintReferential;
 import com.lealone.db.schema.Schema;
@@ -498,10 +497,7 @@ public class Service extends SchemaObjectBase {
         // 调用服务前数据库可能没有初始化
         if (!db.isInitialized())
             db.init();
-        Schema schema = db.findSchema(session, schemaName);
-        if (schema == null) {
-            throw DbException.get(ErrorCode.SCHEMA_NOT_FOUND_1, schemaName);
-        }
+        Schema schema = db.getSchema(session, schemaName);
         Service service = schema.getService(session, serviceName);
         service.init();
         return service;
@@ -521,26 +517,17 @@ public class Service extends SchemaObjectBase {
     }
 
     // 通过http调用
-    public static Object execute(ServerSession session, String serviceName, String methodName,
-            Map<String, Object> methodArgs) {
-        return execute(session, serviceName, methodName, methodArgs, false);
-    }
-
-    public static Object execute(ServerSession session, String serviceName, String methodName,
-            Map<String, Object> methodArgs, boolean disableDynamicCompile) {
-        String[] a = StringUtils.arraySplit(serviceName, '.');
-        if (a.length == 3) {
-            Database db = LealoneDatabase.getInstance().getDatabase(a[0]);
-            if (db.getSettings().databaseToUpper) {
-                serviceName = serviceName.toUpperCase();
-                methodName = methodName.toUpperCase();
-            }
-            Service service = getService(session, db, a[1], a[2]);
-            checkRight(session, service);
-            return service.getExecutor(disableDynamicCompile).executeService(methodName, methodArgs);
-        } else {
-            throw new RuntimeException("service " + serviceName + " not found");
+    public static Object execute(ServerSession session, String dbName, String schemaName,
+            String serviceName, String methodName, Map<String, Object> methodArgs,
+            boolean disableDynamicCompile) {
+        Database db = LealoneDatabase.getInstance().getDatabase(dbName);
+        if (db.getSettings().databaseToUpper) {
+            serviceName = serviceName.toUpperCase();
+            methodName = methodName.toUpperCase();
         }
+        Service service = getService(session, db, schemaName, serviceName);
+        checkRight(session, service);
+        return service.getExecutor(disableDynamicCompile).executeService(methodName, methodArgs);
     }
 
     // 通过json调用

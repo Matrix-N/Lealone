@@ -59,7 +59,7 @@ public class Http11OutputBuffer implements HttpOutputBuffer {
     /**
      * The buffer used for header composition.
      */
-    protected final ByteBuffer headerBuffer;
+    protected ByteBuffer headerBuffer;
 
     /**
      * Filter library for processing the response body.
@@ -285,6 +285,7 @@ public class Http11OutputBuffer implements HttpOutputBuffer {
             try {
                 SocketWrapper<?> socketWrapper = this.socketWrapper;
                 if (socketWrapper != null) {
+                    socketWrapper.startWrite();
                     socketWrapper.write(isBlocking(), headerBuffer);
                 } else {
                     throw new CloseNowException(sm.getString("iob.failedwrite"));

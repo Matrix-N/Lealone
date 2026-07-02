@@ -43,7 +43,6 @@ import com.lealone.server.http.container.Service;
 import com.lealone.server.http.container.Wrapper;
 import com.lealone.server.http.container.authenticator.NonLoginAuthenticator;
 import com.lealone.server.http.container.connector.Connector;
-import com.lealone.server.http.container.connector.CoyoteAdapter;
 import com.lealone.server.http.container.core.StandardContext;
 import com.lealone.server.http.container.core.StandardEngine;
 import com.lealone.server.http.container.core.StandardHost;
@@ -173,7 +172,7 @@ public class HttpServer extends AsyncServer<HttpServerConnection> {
 
             protocolHandler = new Http11NioProtocol();
             protocolHandler.setPort(getPort());
-            protocolHandler.setMaxKeepAliveRequests(100 * 10000);
+            protocolHandler.setMaxKeepAliveRequests(-1);
             Connector connector;
             if (MapUtils.getBoolean(config, "ssl", false)) {
                 connector = createSSLConnector(config);
@@ -181,8 +180,6 @@ public class HttpServer extends AsyncServer<HttpServerConnection> {
                 connector = new Connector(protocolHandler);
                 upgradeHttp2(config);
             }
-            CoyoteAdapter adapter = new CoyoteAdapter(connector);
-            protocolHandler.setAdapter(adapter);
             setConnector(connector);
 
             HttpRouter router;
@@ -207,7 +204,7 @@ public class HttpServer extends AsyncServer<HttpServerConnection> {
     }
 
     private void upgradeHttp2(Map<String, String> c) {
-        if (MapUtils.getBoolean(c, "upgrade_http2", false)) {
+        if (MapUtils.getBoolean(c, "http2_enabled", false)) {
             Http2Protocol h2 = new Http2Protocol();
             h2.setOverheadCountFactor(10000000);
             protocolHandler.addUpgradeProtocol(h2);

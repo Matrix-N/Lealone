@@ -59,7 +59,6 @@ import com.lealone.server.http.util.buf.MessageBytes;
 import com.lealone.server.http.util.log.UserDataHelper;
 import com.lealone.server.http.util.net.AbstractEndpoint.Handler.SocketState;
 import com.lealone.server.http.util.net.ApplicationBufferHandler;
-import com.lealone.server.http.util.net.NioChannel;
 import com.lealone.server.http.util.net.SSLSupport;
 import com.lealone.server.http.util.net.SendfileDataBase;
 import com.lealone.server.http.util.net.SendfileKeepAliveState;
@@ -237,9 +236,6 @@ public class Http11Processor extends AbstractProcessor {
     public SocketState service(SocketWrapper<?> socketWrapper) throws IOException {
         // long t1 = System.nanoTime();
         SocketState state = service0(socketWrapper);
-        if (!socketWrapper.isClosed())
-            if (socketWrapper.getSocket() instanceof NioChannel channel)
-                channel.batchWrite();
         // System.out.println("service: " + (System.nanoTime() - t1) / 1000);
         return state;
     }
@@ -1045,6 +1041,9 @@ public class Http11Processor extends AbstractProcessor {
     }
 
     private void writeHeaders(int status, MimeHeaders headers) {
+        socketWrapper.startWrite();
+        ByteBuffer old = outputBuffer.headerBuffer;
+        outputBuffer.headerBuffer = socketWrapper.getGlobalWritableChannel().getByteBuffer();
         try {
             outputBuffer.sendStatus(status);
 
@@ -1073,6 +1072,9 @@ public class Http11Processor extends AbstractProcessor {
             // response can be written instead.
             outputBuffer.resetHeaderBuffer();
             throw t;
+        } finally {
+            // old.position(outputBuffer.headerBuffer.position());
+            outputBuffer.headerBuffer = old;
         }
     }
 

@@ -33,7 +33,6 @@ import com.lealone.server.http.protocol.Adapter;
 import com.lealone.server.http.protocol.ProtocolException;
 import com.lealone.server.http.protocol.Request;
 import com.lealone.server.http.protocol.util.MimeHeaders;
-import com.lealone.server.http.util.net.NioChannel;
 import com.lealone.server.http.util.net.SendfileState;
 import com.lealone.server.http.util.net.SocketWrapper;
 import com.lealone.server.http.util.net.SocketWrapper.BlockingMode;
@@ -198,6 +197,7 @@ public class Http2AsyncUpgradeHandler extends Http2UpgradeHandler {
     @Override
     void writeHeaders(Stream stream, MimeHeaders mimeHeaders, boolean endOfStream, int payloadSize)
             throws IOException {
+        // socketWrapper.startWrite();
         headerWriteLock.lock();
         try {
             AsyncHeaderFrameBuffers headerFrameBuffers = (AsyncHeaderFrameBuffers) doWriteHeaders(stream,
@@ -212,7 +212,7 @@ public class Http2AsyncUpgradeHandler extends Http2UpgradeHandler {
             headerWriteLock.unlock();
         }
         if (endOfStream) {
-            ((NioChannel) socketWrapper.getSocket()).batchWrite();
+            // socketWrapper.flush();
             sentEndOfStream(stream);
         }
     }
@@ -249,9 +249,6 @@ public class Http2AsyncUpgradeHandler extends Http2UpgradeHandler {
                     ByteBuffer.wrap(header), data);
             data.limit(orgLimit);
             handleAsyncException();
-        }
-        if (finished) {
-            ((NioChannel) socketWrapper.getSocket()).batchWrite();
         }
     }
 
@@ -307,7 +304,6 @@ public class Http2AsyncUpgradeHandler extends Http2UpgradeHandler {
                     TimeUnit.MILLISECONDS, null, SocketWrapper.COMPLETE_WRITE, errorCompletion,
                     ByteBuffer.wrap(SETTINGS_ACK));
         }
-        ((NioChannel) socketWrapper.getSocket()).batchWrite();
         handleAsyncException();
     }
 

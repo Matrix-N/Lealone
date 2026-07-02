@@ -126,7 +126,6 @@ class Http2AsyncParser extends Http2Parser {
             }
             // Continue reading frames
             upgradeHandler.upgradeDispatch(SocketEvent.OPEN_READ);
-            socketWrapper.setFrameHandler(new Http2FrameHandler());
         }
     }
 
@@ -159,87 +158,6 @@ class Http2AsyncParser extends Http2Parser {
                 throw (RuntimeException) error;
             } else {
                 throw new RuntimeException(error);
-            }
-        }
-    }
-
-    private class Http2FrameHandler implements SocketWrapper.FrameHandler {
-
-        private int payloadSize;
-        private int frameTypeId;
-        private FrameType frameType;
-        private int flags;
-        private int streamId;
-        private boolean streamException = false;
-
-        @Override
-        public int handleHeader(ByteBuffer header) {
-            int pos = header.position();
-            payloadSize = ByteUtil.getThreeBytes(header, pos);
-            frameTypeId = ByteUtil.getOneByte(header, pos + 3);
-            frameType = FrameType.valueOf(frameTypeId);
-            flags = ByteUtil.getOneByte(header, pos + 4);
-            streamId = ByteUtil.get31Bits(header, pos + 5);
-            header.position(pos + 9);
-            try {
-                validateFrame(null, frameType, streamId, flags, payloadSize);
-            } catch (StreamException e) {
-                error = e;
-                streamException = true;
-            } catch (Http2Exception e) {
-                error = e;
-            }
-            return payloadSize;
-        }
-
-        @Override
-        public void handleBody(ByteBuffer payload) {
-            if (streamException || error == null) {
-                try {
-                    if (streamException) {
-                        swallowPayload(streamId, frameTypeId, payloadSize, false, payload);
-                    } else {
-                        switch (frameType) {
-                        case DATA:
-                            readDataFrame(streamId, flags, payloadSize, payload);
-                            break;
-                        case HEADERS:
-                            readHeadersFrame(streamId, flags, payloadSize, payload);
-                            break;
-                        case PRIORITY:
-                            readPriorityFrame(streamId, payload);
-                            break;
-                        case RST:
-                            readRstFrame(streamId, payload);
-                            break;
-                        case SETTINGS:
-                            readSettingsFrame(flags, payloadSize, payload);
-                            break;
-                        case PUSH_PROMISE:
-                            readPushPromiseFrame(streamId, flags, payloadSize, payload);
-                            break;
-                        case PING:
-                            readPingFrame(flags, payload);
-                            break;
-                        case GOAWAY:
-                            readGoawayFrame(payloadSize, payload);
-                            break;
-                        case WINDOW_UPDATE:
-                            readWindowUpdateFrame(streamId, payload);
-                            break;
-                        case CONTINUATION:
-                            readContinuationFrame(streamId, flags, payloadSize, payload);
-                            break;
-                        case PRIORITY_UPDATE:
-                            readPriorityUpdateFrame(payloadSize, payload);
-                            break;
-                        case UNKNOWN:
-                            readUnknownFrame(streamId, frameTypeId, flags, payloadSize, payload);
-                        }
-                    }
-                } catch (RuntimeException | IOException | Http2Exception e) {
-                    error = e;
-                }
             }
         }
     }
@@ -391,7 +309,6 @@ class Http2AsyncParser extends Http2Parser {
                                 }
                             }
                         }
-                        socketWrapper.setContinueParsing(continueParsing);
                     } while (continueParsing);
                 } catch (RuntimeException | IOException | Http2Exception e) {
                     error = e;

@@ -53,21 +53,27 @@ public class ServiceHandler {
         if (methodArgs.containsKey("methodArgs")) {
             return executeService(serviceName, methodName, methodArgs.get("methodArgs").toString());
         }
+        String dbName = defaultDatabase;
+        String schemaName = defaultSchema;
         String[] serviceNameArray = StringUtils.arraySplit(serviceName, '.');
-        if (serviceNameArray.length == 1 && defaultDatabase != null && defaultSchema != null)
-            serviceName = defaultDatabase + "." + defaultSchema + "." + serviceName;
-        else if (serviceNameArray.length == 2 && defaultDatabase != null)
-            serviceName = defaultDatabase + "." + serviceName;
+        if (serviceNameArray.length == 2) {
+            schemaName = serviceNameArray[0];
+            serviceName = serviceNameArray[1];
+        } else if (serviceNameArray.length >= 3) {
+            dbName = serviceNameArray[0];
+            schemaName = serviceNameArray[1];
+            serviceName = serviceNameArray[2];
+        }
 
         Object result = null;
         try {
             if (logger.isDebugEnabled())
                 logger.debug("Execute service: {}.{}", serviceName, methodName);
-            if (serviceName.toUpperCase().contains("LEALONE_SYSTEM_SERVICE")) {
-                result = SystemService.execute(serviceName, methodName, methodArgs);
+            if (serviceName.equalsIgnoreCase("LEALONE_SYSTEM_SERVICE")) {
+                result = SystemService.execute(dbName, schemaName, methodName, methodArgs);
             } else {
-                result = Service.execute(session, serviceName, methodName, methodArgs,
-                        disableDynamicCompile);
+                result = Service.execute(session, dbName, schemaName, serviceName, methodName,
+                        methodArgs, disableDynamicCompile);
             }
         } catch (Exception e) {
             result = "Failed to execute service: " + serviceName + "." + methodName + ", cause: "

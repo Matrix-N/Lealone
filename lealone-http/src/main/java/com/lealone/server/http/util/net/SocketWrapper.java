@@ -33,6 +33,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.lealone.common.logging.Logger;
 import com.lealone.common.logging.LoggerFactory;
+import com.lealone.db.session.Session;
+import com.lealone.net.TransferOutputStream.GlobalWritableChannel;
 import com.lealone.server.http.util.ExceptionUtils;
 import com.lealone.server.http.util.res.StringManager;
 import com.lealone.server.servlet.ServletConnection;
@@ -554,15 +556,16 @@ public abstract class SocketWrapper<E> {
      * @throws IOException If an IO error occurs during the write
      */
     protected void writeBlocking(ByteBuffer from) throws IOException {
-        if (from.hasRemaining()) {
-            socketBufferHandler.configureWriteBufferForWrite();
-            transfer(from, socketBufferHandler.getWriteBuffer());
-            while (from.hasRemaining()) {
-                doWrite(true);
-                socketBufferHandler.configureWriteBufferForWrite();
-                transfer(from, socketBufferHandler.getWriteBuffer());
-            }
-        }
+        globalWritableChannel.getGlobalBuffer().getDataBuffer().put(from);
+        // if (from.hasRemaining()) {
+        // socketBufferHandler.configureWriteBufferForWrite();
+        // transfer(from, socketBufferHandler.getWriteBuffer());
+        // while (from.hasRemaining()) {
+        // doWrite(true);
+        // socketBufferHandler.configureWriteBufferForWrite();
+        // transfer(from, socketBufferHandler.getWriteBuffer());
+        // }
+        // }
     }
 
     /**
@@ -1465,29 +1468,25 @@ public abstract class SocketWrapper<E> {
         this.schedulerId = schedulerId;
     }
 
-    private FrameHandler frameHandler;
+    private GlobalWritableChannel globalWritableChannel;
 
-    public FrameHandler getFrameHandler() {
-        return frameHandler;
+    public GlobalWritableChannel getGlobalWritableChannel() {
+        return globalWritableChannel;
     }
 
-    public void setFrameHandler(FrameHandler frameHandler) {
-        this.frameHandler = frameHandler;
+    public void setGlobalWritableChannel(GlobalWritableChannel globalWritableChannel) {
+        this.globalWritableChannel = globalWritableChannel;
     }
 
-    public static interface FrameHandler {
-        public int handleHeader(ByteBuffer header);
-
-        public void handleBody(ByteBuffer payload);
+    public void startWrite() {
+        globalWritableChannel.startWrite(Session.STATUS_OK);
     }
 
-    private boolean continueParsing;
-
-    public boolean isContinueParsing() {
-        return continueParsing;
+    public void startWrite(int status) {
+        globalWritableChannel.startWrite(status);
     }
 
-    public void setContinueParsing(boolean continueParsing) {
-        this.continueParsing = continueParsing;
+    public int flush() {
+        return globalWritableChannel.flush();
     }
 }

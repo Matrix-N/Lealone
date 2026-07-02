@@ -7,13 +7,14 @@ package com.lealone.server.http;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.Writer;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
 import com.lealone.common.util.CaseInsensitiveMap;
+import com.lealone.common.util.StringUtils;
 import com.lealone.db.service.ServiceHandler;
 import com.lealone.orm.json.JsonObject;
 import com.lealone.server.servlet.ServletException;
@@ -33,12 +34,12 @@ public class HttpServiceServlet extends HttpServlet {
             boolean disableDynamicCompile) throws IOException {
         // 不能用getRequestURI()，因为它包含Context路径
         String url = request.getServletPath();
-        String[] a = url.split("/");
-        if (a.length < 4) {
+        String[] a = StringUtils.arraySplit(url, '/');
+        if (a.length < 3) {
             throw new RuntimeException("service " + url + " not found");
         }
-        String serviceName = a[2];
-        String methodName = a[3];
+        String serviceName = a[1];
+        String methodName = a[2];
 
         CaseInsensitiveMap<Object> methodArgs = getMethodArgs(request);
         return serviceHandler.executeService(serviceName, methodName, methodArgs, disableDynamicCompile);
@@ -48,14 +49,13 @@ public class HttpServiceServlet extends HttpServlet {
     protected void service(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         String url = request.getRequestURI();
-        String[] a = url.split("/");
-        if (a.length < 4) {
+        String[] a = StringUtils.arraySplit(url, '/');
+        if (a.length < 3) {
             response.sendError(400, "service " + url + " not found");
             return;
         }
-        String serviceName = a[2];
-        String methodName = a[3];
-
+        String serviceName = a[1];
+        String methodName = a[2];
         CaseInsensitiveMap<Object> methodArgs = getMethodArgs(request);
         String result = serviceHandler.executeService(serviceName, methodName, methodArgs);
         sendHttpServiceResponse(response, serviceName, methodName, result);
@@ -74,7 +74,7 @@ public class HttpServiceServlet extends HttpServlet {
         if (map.isEmpty() && request.getMethod().equalsIgnoreCase("post")) {
             try {
                 BufferedReader reader = new BufferedReader(
-                        new java.io.InputStreamReader(request.getInputStream()));
+                        new InputStreamReader(request.getInputStream()));
                 StringBuilder sb = new StringBuilder();
                 String line;
                 while ((line = reader.readLine()) != null) {
@@ -90,7 +90,7 @@ public class HttpServiceServlet extends HttpServlet {
             } catch (IOException e) {
             }
         } else {
-            for (Entry<String, String[]> e : request.getParameterMap().entrySet()) {
+            for (Entry<String, String[]> e : map.entrySet()) {
                 String[] values = e.getValue();
                 String key = e.getKey();
                 for (int i = 0, len = values.length; i < len; i++) {
@@ -103,14 +103,10 @@ public class HttpServiceServlet extends HttpServlet {
 
     protected void sendHttpServiceResponse(HttpServletResponse response, String serviceName,
             String methodName, String result) throws IOException {
-        response.setCharacterEncoding("UTF-8");
         response.setContentType("application/json; charset=utf-8");
         response.setHeader("Server", "Lealone HttpServer");
         response.setHeader("Access-Control-Allow-Origin", "*");
-        try (Writer writer = response.getWriter()) {
-            writer.write(result);
-            writer.flush();
-        }
+        response.getOutputStream().write(result.getBytes("utf-8"));
     }
 
     @SuppressWarnings("unchecked")
