@@ -12,6 +12,7 @@ import java.util.Map;
 
 import com.lealone.common.security.EncryptionOptions.ServerEncryptionOptions;
 import com.lealone.common.util.MapUtils;
+import com.lealone.common.util.StringUtils;
 import com.lealone.db.Constants;
 
 public abstract class ProtocolServerBase implements ProtocolServer {
@@ -48,7 +49,7 @@ public abstract class ProtocolServerBase implements ProtocolServer {
         allowOthers = MapUtils.getBoolean(config, "allow_others", true);
 
         if (config.containsKey("white_list")) {
-            String[] hosts = config.get("white_list").split(",");
+            String[] hosts = StringUtils.arraySplit(config.get("white_list"), ',');
             whiteList = new HashSet<>(hosts.length);
             for (String host : hosts) {
                 whiteList.add(host);

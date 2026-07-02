@@ -11,6 +11,7 @@ import java.net.URLClassLoader;
 import com.lealone.common.exceptions.ConfigException;
 import com.lealone.common.exceptions.DbException;
 import com.lealone.common.util.CaseInsensitiveMap;
+import com.lealone.common.util.StringUtils;
 import com.lealone.common.util.Utils;
 import com.lealone.db.LealoneDatabase;
 import com.lealone.db.api.ErrorCode;
@@ -74,7 +75,7 @@ public class CreatePlugin extends AdminStatement {
         Plugin plugin = null;
         URLClassLoader cl = null;
         if (classPath != null) {
-            String[] a = classPath.split(",");
+            String[] a = StringUtils.arraySplit(classPath, ',');
             URL[] urls = new URL[a.length];
             for (int i = 0; i < a.length; i++) {
                 urls[i] = Utils.toURL(a[i]);

@@ -60,7 +60,7 @@ public class CamelCaseHelper {
      * @return the string
      */
     public static String toCamelFromUnderscore(String underscore) {
-        String[] vals = underscore.split("_");
+        String[] vals = StringUtils.arraySplit(underscore, '_');
         if (vals.length == 1) {
             return isUpperCase(underscore) ? underscore.toLowerCase() : underscore;
         }
@@ -91,7 +91,7 @@ public class CamelCaseHelper {
 
     public static String toClassNameFromUnderscore(String underscore) {
         StringBuilder result = new StringBuilder();
-        String[] vals = underscore.split("_");
+        String[] vals = StringUtils.arraySplit(underscore, '_');
         for (int i = 0; i < vals.length; i++) {
             toClassName(result, vals[i]);
         }

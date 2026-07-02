@@ -5,6 +5,7 @@
  */
 package com.lealone.db.table;
 
+import com.lealone.common.util.StringUtils;
 import com.lealone.db.row.Row;
 import com.lealone.db.session.ServerSession;
 import com.lealone.db.value.Value;
@@ -38,7 +39,7 @@ public class TableAlterHistoryRecord {
             values[position] = column.convert(values[position]);
             return values;
         } else if (alterType == SQLStatement.ALTER_TABLE_ADD_COLUMN) {
-            String[] a = columns.split(",");
+            String[] a = StringUtils.arraySplit(columns, ',');
             int position = Integer.parseInt(a[0]);
             int len = a.length - 1 + values.length;
             Value[] newValues = new Value[len];

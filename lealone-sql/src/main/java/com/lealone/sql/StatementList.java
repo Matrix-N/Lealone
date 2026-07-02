@@ -7,6 +7,7 @@ package com.lealone.sql;
 
 import java.util.ArrayList;
 
+import com.lealone.common.util.StringUtils;
 import com.lealone.db.async.AsyncResultHandler;
 import com.lealone.db.async.Future;
 import com.lealone.db.result.Result;
@@ -118,7 +119,7 @@ public class StatementList extends StatementBase {
                 nestedSession.setAutoCommit(false);
             StatementBase firstStatement = statementList.firstStatement;
             firstStatement.setSession(nestedSession); // 要切换session
-            statements = statementList.getRemaining().split(";");
+            statements = StringUtils.arraySplit(statementList.getRemaining(), ';');
             if (firstStatement.isQuery())
                 createYieldableQuery(firstStatement, maxRows, scrollable);
             else

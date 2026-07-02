@@ -103,15 +103,6 @@ public final class StringUtils {
      * @return An array of String values.
      */
     public static String[] splitCommaSeparated(String s) {
-        if (s == null || s.isEmpty()) {
-            return new String[0];
-        }
-
-        String[] splits = s.split(",");
-        for (int i = 0; i < splits.length; ++i) {
-            splits[i] = splits[i].trim();
-        }
-
-        return splits;
+        return com.lealone.common.util.StringUtils.arraySplit(s, ',');
     }
 }

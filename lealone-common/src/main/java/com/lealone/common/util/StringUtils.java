@@ -7,7 +7,6 @@ package com.lealone.common.util;
 
 import java.lang.ref.SoftReference;
 import java.net.URLEncoder;
-import java.util.ArrayList;
 import java.util.Locale;
 
 import com.lealone.common.exceptions.DbException;
@@ -449,33 +448,97 @@ public class StringUtils {
      * @param trim whether each element should be trimmed
      * @return the array list
      */
-    public static String[] arraySplit(String s, char separatorChar, boolean trim) {
-        if (s == null) {
+    // 这个版本比较慢
+    // public static String[] arraySplit(String s, char separatorChar, boolean trim) {
+    // if (s == null) {
+    // return null;
+    // }
+    // int length = s.length();
+    // if (length == 0) {
+    // return new String[0];
+    // }
+    // ArrayList<String> list = Utils.newSmallArrayList();
+    // StringBuilder buff = new StringBuilder(length);
+    // for (int i = 0; i < length; i++) {
+    // char c = s.charAt(i);
+    // if (c == separatorChar) {
+    // String e = buff.toString();
+    // list.add(trim ? e.trim() : e);
+    // buff.setLength(0);
+    // // } else if (c == '\\' && i < length - 1) {
+    // // buff.append(s.charAt(++i));
+    // } else {
+    // buff.append(c);
+    // }
+    // }
+    // String e = buff.toString();
+    // list.add(trim ? e.trim() : e);
+    // String[] array = new String[list.size()];
+    // list.toArray(array);
+    // return array;
+    // }
+
+    public static String[] arraySplit(String str, char delimiter, boolean trim) {
+        if (str == null)
             return null;
-        }
-        int length = s.length();
-        if (length == 0) {
+        if (str.isEmpty())
             return new String[0];
-        }
-        ArrayList<String> list = Utils.newSmallArrayList();
-        StringBuilder buff = new StringBuilder(length);
-        for (int i = 0; i < length; i++) {
-            char c = s.charAt(i);
-            if (c == separatorChar) {
-                String e = buff.toString();
-                list.add(trim ? e.trim() : e);
-                buff.setLength(0);
-                // } else if (c == '\\' && i < length - 1) {
-                // buff.append(s.charAt(++i));
-            } else {
-                buff.append(c);
+
+        // 1. 跳过首尾的 delimiter
+        int globalStart = 0;
+        int globalEnd = str.length();
+        while (globalStart < globalEnd && str.charAt(globalStart) == delimiter)
+            globalStart++;
+        while (globalEnd > globalStart && str.charAt(globalEnd - 1) == delimiter)
+            globalEnd--;
+
+        // 如果全被跳过，说明全是 delimiter，直接返回空数组
+        if (globalStart >= globalEnd)
+            return new String[0];
+
+        // 2. 第一遍：快速统计有效分隔符数量（用于精确初始化数组，避免扩容）
+        int count = 1;
+        for (int i = globalStart; i < globalEnd; i++) {
+            if (str.charAt(i) == delimiter && (i == globalStart || str.charAt(i - 1) != delimiter)) {
+                count++;
             }
         }
-        String e = buff.toString();
-        list.add(trim ? e.trim() : e);
-        String[] array = new String[list.size()];
-        list.toArray(array);
-        return array;
+        if (count == 1) {
+            return new String[] { trim ? str.trim() : str };
+        }
+
+        String[] result = new String[count];
+        int start = globalStart;
+        int index = 0;
+
+        // 3. 第二遍：按分隔符切割、去重并就地 trim
+        while (start < globalEnd) {
+            int end = str.indexOf(delimiter, start);
+            // 如果没找到，或者找到的位置超出了有效范围，说明是最后一段
+            if (end == -1 || end >= globalEnd)
+                end = globalEnd;
+
+            // 核心逻辑：处理连续的 delimiter
+            // 如果当前截取长度为 0，说明遇到了连续的 delimiter，直接跳过
+            if (start == end) {
+                start++; // 指针向后移动一位
+                continue;
+            }
+
+            // 手动寻找非空格的起止位置，避免创建中间字符串
+            int trimStart = start;
+            int trimEnd = end;
+            if (trim) {
+                while (trimStart < trimEnd && str.charAt(trimStart) <= ' ')
+                    trimStart++;
+                while (trimEnd > trimStart && str.charAt(trimEnd - 1) <= ' ')
+                    trimEnd--;
+            }
+
+            result[index++] = str.substring(trimStart, trimEnd);
+            start = end + 1;
+        }
+        return result;
     }
 
     public static int[] arraySplitAsInt(String s, char separatorChar) {
