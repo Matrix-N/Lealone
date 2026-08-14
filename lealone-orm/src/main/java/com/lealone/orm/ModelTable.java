@@ -8,6 +8,7 @@ package com.lealone.orm;
 import com.lealone.db.ConnectionInfo;
 import com.lealone.db.Constants;
 import com.lealone.db.Database;
+import com.lealone.db.scheduler.Scheduler;
 import com.lealone.db.scheduler.SchedulerFactory;
 import com.lealone.db.scheduler.SchedulerThread;
 import com.lealone.db.session.ServerSession;
@@ -73,11 +74,17 @@ public class ModelTable {
     private void bindTable() {
         // 沒有初始化，或已经无效了，比如drop table后还被引用
         if (table == null || table.isInvalid()) {
-            int id = SchedulerThread.currentScheduler().getId();
-            if (sessions[id] == null) {
-                sessions[id] = (ServerSession) new ConnectionInfo(getUrl()).createSession();
+            Scheduler scheduler = SchedulerThread.currentScheduler();
+            if (scheduler != null) {
+                int id = scheduler.getId();
+                if (sessions[id] == null) {
+                    sessions[id] = (ServerSession) new ConnectionInfo(getUrl()).createSession();
+                }
+                session = sessions[id];
+            } else {
+                // 如果当前线程不是Scheduler线程，直接创建新的ServerSession
+                session = (ServerSession) new ConnectionInfo(getUrl()).createSession();
             }
-            session = sessions[id];
             Database db = session.getDatabase();
             table = db.getSchema(session, schemaName).getTableOrView(session, tableName);
         }
