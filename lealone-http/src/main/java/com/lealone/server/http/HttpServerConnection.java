@@ -28,6 +28,7 @@ public class HttpServerConnection extends TransferConnection {
         NetEventLoop netEventLoop = (NetEventLoop) scheduler.getNetEventLoop();
         socketWrapper.setSelector(netEventLoop.getSelector());
         socketWrapper.setSchedulerId(scheduler.getId());
+        socketWrapper.setScheduler(scheduler);
         netEventLoop.setPreferBatchWrite(true);
 
         socketWrapper.setGlobalWritableChannel(

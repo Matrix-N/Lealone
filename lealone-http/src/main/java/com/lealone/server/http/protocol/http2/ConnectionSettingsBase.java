@@ -16,8 +16,7 @@
  */
 package com.lealone.server.http.protocol.http2;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
 
 import com.lealone.common.logging.Logger;
 import com.lealone.common.logging.LoggerFactory;
@@ -47,8 +46,8 @@ abstract class ConnectionSettingsBase<T extends Throwable> {
     // Defaults (defined by Tomcat)
     static final long DEFAULT_NO_RFC7540_PRIORITIES = 1;
 
-    Map<Setting, Long> current = new ConcurrentHashMap<>();
-    Map<Setting, Long> pending = new ConcurrentHashMap<>();
+    HashMap<Setting, Long> current = new HashMap<>();
+    HashMap<Setting, Long> pending = new HashMap<>();
 
     ConnectionSettingsBase(String connectionId) {
         this.connectionId = connectionId;
@@ -105,7 +104,7 @@ abstract class ConnectionSettingsBase<T extends Throwable> {
      *                    if the setting to take effect immediately. Even if the setting takes effect immediately, it
      *                    will still be included in the next {@code SETTINGS} frame and an {@code ACK} will be expected.
      */
-    synchronized void set(Setting setting, Long value, boolean force) {
+    void set(Setting setting, Long value, boolean force) {
         current.put(setting, value);
     }
 
@@ -134,7 +133,7 @@ abstract class ConnectionSettingsBase<T extends Throwable> {
         return getMax(Setting.MAX_HEADER_LIST_SIZE);
     }
 
-    private synchronized long getMin(Setting setting) {
+    private long getMin(Setting setting) {
         Long pendingValue = pending.get(setting);
         long currentValue = current.get(setting).longValue();
         if (pendingValue == null) {
@@ -144,7 +143,7 @@ abstract class ConnectionSettingsBase<T extends Throwable> {
         }
     }
 
-    private synchronized int getMinInt(Setting setting) {
+    private int getMinInt(Setting setting) {
         long result = getMin(setting);
         if (result > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;
@@ -153,7 +152,7 @@ abstract class ConnectionSettingsBase<T extends Throwable> {
         }
     }
 
-    private synchronized long getMax(Setting setting) {
+    private long getMax(Setting setting) {
         Long pendingValue = pending.get(setting);
         long currentValue = current.get(setting).longValue();
         if (pendingValue == null) {
@@ -163,7 +162,7 @@ abstract class ConnectionSettingsBase<T extends Throwable> {
         }
     }
 
-    private synchronized int getMaxInt(Setting setting) {
+    private int getMaxInt(Setting setting) {
         long result = getMax(setting);
         if (result > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;

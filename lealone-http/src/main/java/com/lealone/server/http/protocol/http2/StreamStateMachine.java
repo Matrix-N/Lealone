@@ -47,22 +47,22 @@ class StreamStateMachine {
         stateChange(null, State.IDLE);
     }
 
-    final synchronized void sentHeaders() {
+    final void sentHeaders() {
         // No change if currently OPEN
         stateChange(State.RESERVED_LOCAL, State.HALF_CLOSED_REMOTE);
     }
 
-    final synchronized void receivedStartOfHeaders() {
+    final void receivedStartOfHeaders() {
         stateChange(State.IDLE, State.OPEN);
         stateChange(State.RESERVED_REMOTE, State.HALF_CLOSED_LOCAL);
     }
 
-    final synchronized void sentEndOfStream() {
+    final void sentEndOfStream() {
         stateChange(State.OPEN, State.HALF_CLOSED_LOCAL);
         stateChange(State.HALF_CLOSED_REMOTE, State.CLOSED_TX);
     }
 
-    final synchronized void receivedEndOfStream() {
+    final void receivedEndOfStream() {
         stateChange(State.OPEN, State.HALF_CLOSED_REMOTE);
         stateChange(State.HALF_CLOSED_LOCAL, State.CLOSED_RX);
     }
@@ -76,7 +76,7 @@ class StreamStateMachine {
      *
      * @throws IllegalStateException If the stream is in a state that does not permit resets
      */
-    public synchronized void sendReset() {
+    public void sendReset() {
         if (state == State.IDLE) {
             throw new IllegalStateException(
                     sm.getString("streamStateMachine.invalidReset", connectionId, streamId));
@@ -86,7 +86,7 @@ class StreamStateMachine {
         }
     }
 
-    final synchronized void receivedReset() {
+    final void receivedReset() {
         stateChange(state, State.CLOSED_RST_RX);
     }
 
@@ -100,7 +100,7 @@ class StreamStateMachine {
         }
     }
 
-    final synchronized void checkFrameType(FrameType frameType) throws Http2Exception {
+    final void checkFrameType(FrameType frameType) throws Http2Exception {
         // No state change. Checks that receiving the frame type is valid for
         // the current state of this stream.
         if (!isFrameTypePermitted(frameType)) {
@@ -115,31 +115,31 @@ class StreamStateMachine {
         }
     }
 
-    final synchronized boolean isFrameTypePermitted(FrameType frameType) {
+    final boolean isFrameTypePermitted(FrameType frameType) {
         return state.isFrameTypePermitted(frameType);
     }
 
-    final synchronized boolean isActive() {
+    final boolean isActive() {
         return state.isActive();
     }
 
-    final synchronized boolean canRead() {
+    final boolean canRead() {
         return state.canRead();
     }
 
-    final synchronized boolean canWrite() {
+    final boolean canWrite() {
         return state.canWrite();
     }
 
-    final synchronized boolean isClosedFinal() {
+    final boolean isClosedFinal() {
         return state == State.CLOSED_FINAL;
     }
 
-    final synchronized void closeIfIdle() {
+    final void closeIfIdle() {
         stateChange(State.IDLE, State.CLOSED_FINAL);
     }
 
-    final synchronized String getCurrentStateName() {
+    final String getCurrentStateName() {
         return state.name();
     }
 

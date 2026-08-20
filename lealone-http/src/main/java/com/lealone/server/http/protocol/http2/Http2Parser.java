@@ -46,11 +46,10 @@ class Http2Parser {
     private final Output output;
     private final byte[] frameHeaderBuffer = new byte[9];
 
-    private volatile HpackDecoder hpackDecoder;
-    private volatile ByteBuffer headerReadBuffer = ByteBuffer
-            .allocate(Constants.DEFAULT_HEADER_READ_BUFFER_SIZE);
-    private volatile int headersCurrentStream = -1;
-    private volatile boolean headersEndStream = false;
+    private HpackDecoder hpackDecoder;
+    private ByteBuffer headerReadBuffer = ByteBuffer.allocate(Constants.DEFAULT_HEADER_READ_BUFFER_SIZE);
+    private int headersCurrentStream = -1;
+    private boolean headersEndStream = false;
 
     Http2Parser(String connectionId, Input input, Output output) {
         this.connectionId = connectionId;
@@ -181,34 +180,32 @@ class Http2Parser {
                 output.receivedEndOfStream(streamId);
             }
         } else {
-            synchronized (dest) {
-                if (dest.remaining() < dataLength) {
-                    // Client has sent more data than permitted by Window size
-                    swallowPayload(streamId, FrameType.DATA.getId(), dataLength, false, buffer);
-                    if (Flags.hasPadding(flags)) {
-                        swallowPayload(streamId, FrameType.DATA.getId(), padLength, true, buffer);
-                    }
-                    throw new StreamException(
-                            sm.getString("http2Parser.processFrameData.window", connectionId),
-                            Http2Error.FLOW_CONTROL_ERROR, streamId);
-                }
-                if (buffer == null) {
-                    input.fill(true, dest, dataLength);
-                } else {
-                    int oldLimit = buffer.limit();
-                    buffer.limit(buffer.position() + dataLength);
-                    dest.put(buffer);
-                    buffer.limit(oldLimit);
-                }
-                // Process padding before sending any notifications in case
-                // padding is invalid.
+            if (dest.remaining() < dataLength) {
+                // Client has sent more data than permitted by Window size
+                swallowPayload(streamId, FrameType.DATA.getId(), dataLength, false, buffer);
                 if (Flags.hasPadding(flags)) {
                     swallowPayload(streamId, FrameType.DATA.getId(), padLength, true, buffer);
                 }
-                if (endOfStream) {
-                    output.receivedEndOfStream(streamId);
-                    output.endRequestBodyFrame(streamId, dataLength);
-                }
+                throw new StreamException(
+                        sm.getString("http2Parser.processFrameData.window", connectionId),
+                        Http2Error.FLOW_CONTROL_ERROR, streamId);
+            }
+            if (buffer == null) {
+                input.fill(true, dest, dataLength);
+            } else {
+                int oldLimit = buffer.limit();
+                buffer.limit(buffer.position() + dataLength);
+                dest.put(buffer);
+                buffer.limit(oldLimit);
+            }
+            // Process padding before sending any notifications in case
+            // padding is invalid.
+            if (Flags.hasPadding(flags)) {
+                swallowPayload(streamId, FrameType.DATA.getId(), padLength, true, buffer);
+            }
+            if (endOfStream) {
+                output.receivedEndOfStream(streamId);
+                output.endRequestBodyFrame(streamId, dataLength);
             }
         }
     }

@@ -38,7 +38,7 @@ class ConnectionSettingsLocal extends ConnectionSettingsBase<IllegalArgumentExce
     }
 
     @Override
-    final synchronized void set(Setting setting, Long value, boolean force) {
+    final void set(Setting setting, Long value, boolean force) {
         checkSend();
         if (current.get(setting).longValue() == value.longValue()) {
             pending.remove(setting);
@@ -50,7 +50,7 @@ class ConnectionSettingsLocal extends ConnectionSettingsBase<IllegalArgumentExce
         }
     }
 
-    final synchronized byte[] getSettingsFrameForPending() {
+    final byte[] getSettingsFrameForPending() {
         checkSend();
         int payloadSize = pending.size() * 6;
         byte[] result = new byte[9 + payloadSize];
@@ -71,7 +71,7 @@ class ConnectionSettingsLocal extends ConnectionSettingsBase<IllegalArgumentExce
         return result;
     }
 
-    final synchronized boolean ack() {
+    final boolean ack() {
         if (sendInProgress) {
             sendInProgress = false;
             current.putAll(pending);

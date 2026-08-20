@@ -17,15 +17,14 @@
 package com.lealone.server.http.protocol;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Set;
-import java.util.concurrent.CopyOnWriteArraySet;
 
 import com.lealone.common.logging.Logger;
+import com.lealone.server.http.util.net.AbstractEndpoint.Handler.SocketState;
 import com.lealone.server.http.util.net.DispatchType;
 import com.lealone.server.http.util.net.SocketEvent;
 import com.lealone.server.http.util.net.SocketWrapper;
-import com.lealone.server.http.util.net.AbstractEndpoint.Handler.SocketState;
 
 /**
  * This is a light-weight abstract processor implementation that is intended as a basis for all Processor
@@ -33,17 +32,17 @@ import com.lealone.server.http.util.net.AbstractEndpoint.Handler.SocketState;
  */
 public abstract class AbstractProcessorLight implements Processor {
 
-    private final Set<DispatchType> dispatches = new CopyOnWriteArraySet<>();
+    private final HashSet<DispatchType> dispatches = new HashSet<>();
 
     @Override
     public SocketState process(SocketWrapper<?> socketWrapper, SocketEvent status) throws IOException {
-
+        boolean isTraceEnabled = getLog().isTraceEnabled();
         SocketState state = SocketState.CLOSED;
         Iterator<DispatchType> dispatches = null;
         do {
             if (dispatches != null) {
                 DispatchType nextDispatch = dispatches.next();
-                if (getLog().isTraceEnabled()) {
+                if (isTraceEnabled) {
                     getLog().trace("Processing dispatch type: [" + nextDispatch + "]");
                 }
                 state = dispatch(nextDispatch.getSocketStatus());
@@ -68,7 +67,7 @@ public abstract class AbstractProcessorLight implements Processor {
                 state = SocketState.CLOSED;
             }
 
-            if (getLog().isTraceEnabled()) {
+            if (isTraceEnabled) {
                 getLog().trace("Socket: [" + socketWrapper + "], Status in: [" + status
                         + "], State out: [" + state + "]");
             }
@@ -80,7 +79,7 @@ public abstract class AbstractProcessorLight implements Processor {
              */
             if (isAsync() && state != SocketState.CLOSED) {
                 state = asyncPostProcess();
-                if (getLog().isTraceEnabled()) {
+                if (isTraceEnabled) {
                     getLog().trace("Socket: [" + socketWrapper
                             + "], State after async post processing: [" + state + "]");
                 }
@@ -111,33 +110,27 @@ public abstract class AbstractProcessorLight implements Processor {
     }
 
     public void addDispatch(DispatchType dispatchType) {
-        synchronized (dispatches) {
-            dispatches.add(dispatchType);
-        }
+        dispatches.add(dispatchType);
     }
 
     public Iterator<DispatchType> getIteratorAndClearDispatches() {
+        if (dispatches.isEmpty())
+            return null;
         // Note: Logic in AbstractProtocol depends on this method only returning
         // a non-null value if the iterator is non-empty. i.e. it should never
         // return an empty iterator.
-        Iterator<DispatchType> result;
-        synchronized (dispatches) {
-            // Synchronized as the generation of the iterator and the clearing
-            // of dispatches needs to be an atomic operation.
-            result = dispatches.iterator();
-            if (result.hasNext()) {
-                dispatches.clear();
-            } else {
-                result = null;
-            }
+        Iterator<DispatchType> result = dispatches.iterator();
+        if (result.hasNext()) {
+            dispatches.clear();
+        } else {
+            result = null;
         }
         return result;
     }
 
     protected void clearDispatches() {
-        synchronized (dispatches) {
+        if (!dispatches.isEmpty())
             dispatches.clear();
-        }
     }
 
     /**

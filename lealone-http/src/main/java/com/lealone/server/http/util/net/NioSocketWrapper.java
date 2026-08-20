@@ -31,7 +31,6 @@ import java.nio.channels.SocketChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.ConcurrentModificationException;
 import java.util.Objects;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLEngine;
@@ -54,9 +53,9 @@ public class NioSocketWrapper extends SocketWrapper<NioChannel> {
     private final SynchronizedStack<NioChannel> nioChannels;
 
     private int interestOps = 0;
-    private volatile SendfileData sendfileData = null;
-    private volatile long lastRead = System.currentTimeMillis();
-    private volatile long lastWrite = lastRead;
+    private SendfileData sendfileData = null;
+    private long lastRead = System.currentTimeMillis();
+    private long lastWrite = lastRead;
 
     final Object readLock;
     volatile boolean readBlocking = false;
@@ -76,8 +75,8 @@ public class NioSocketWrapper extends SocketWrapper<NioChannel> {
         }
         nioChannels = endpoint.getNioChannels();
         socketBufferHandler = channel.getBufHandler();
-        readLock = (readPending == null) ? new Object() : readPending;
-        writeLock = (writePending == null) ? new Object() : writePending;
+        readLock = new Object();
+        writeLock = new Object();
     }
 
     public int interestOps() {
@@ -565,21 +564,21 @@ public class NioSocketWrapper extends SocketWrapper<NioChannel> {
     @Override
     protected <A> OperationState<A> newOperationState(boolean read, ByteBuffer[] buffers, int offset,
             int length, BlockingMode block, long timeout, TimeUnit unit, A attachment,
-            CompletionCheck check, CompletionHandler<Long, ? super A> handler, Semaphore semaphore,
+            CompletionCheck check, CompletionHandler<Long, ? super A> handler,
             VectoredIOCompletionHandler<A> completion) {
         return new NioOperationState<>(read, buffers, offset, length, block, timeout, unit, attachment,
-                check, handler, semaphore, completion);
+                check, handler, completion);
     }
 
     private class NioOperationState<A> extends OperationState<A> {
-        private volatile boolean inline = true;
+
+        private boolean inline = true;
 
         private NioOperationState(boolean read, ByteBuffer[] buffers, int offset, int length,
                 BlockingMode block, long timeout, TimeUnit unit, A attachment, CompletionCheck check,
-                CompletionHandler<Long, ? super A> handler, Semaphore semaphore,
-                VectoredIOCompletionHandler<A> completion) {
+                CompletionHandler<Long, ? super A> handler, VectoredIOCompletionHandler<A> completion) {
             super(read, buffers, offset, length, block, timeout, unit, attachment, check, handler,
-                    semaphore, completion);
+                    completion);
         }
 
         @Override
@@ -594,78 +593,71 @@ public class NioSocketWrapper extends SocketWrapper<NioChannel> {
 
         @Override
         public void run() {
-            // if (getInputBuffer() != null) {
-            // handler.completed(null, null);
-            // return;
-            // }
             // Perform the IO operation
             // Called from the poller to continue the IO operation
             long nBytes = 0;
             if (getError() == null) {
                 try {
-                    synchronized (this) {
-                        if (!completionDone) {
-                            // This filters out same notification until processing
-                            // of the current one is done
-                            if (log.isTraceEnabled()) {
-                                log.trace("Skip concurrent " + (read ? "read" : "write")
-                                        + " notification");
-                            }
-                            return;
+                    if (!completionDone) {
+                        // This filters out same notification until processing
+                        // of the current one is done
+                        if (log.isTraceEnabled()) {
+                            log.trace("Skip concurrent " + (read ? "read" : "write") + " notification");
                         }
-                        if (read) {
-                            // Read from main buffer first
-                            if (!socketBufferHandler.isReadBufferEmpty()) {
-                                // There is still data inside the main read buffer, it needs to be read first
-                                socketBufferHandler.configureReadBufferForRead();
-                                for (int i = 0; i < length
-                                        && !socketBufferHandler.isReadBufferEmpty(); i++) {
-                                    nBytes += transfer(socketBufferHandler.getReadBuffer(),
-                                            buffers[offset + i]);
-                                }
+                        return;
+                    }
+                    if (read) {
+                        // Read from main buffer first
+                        if (!socketBufferHandler.isReadBufferEmpty()) {
+                            // There is still data inside the main read buffer, it needs to be read first
+                            socketBufferHandler.configureReadBufferForRead();
+                            for (int i = 0; i < length
+                                    && !socketBufferHandler.isReadBufferEmpty(); i++) {
+                                nBytes += transfer(socketBufferHandler.getReadBuffer(),
+                                        buffers[offset + i]);
                             }
-                            if (nBytes == 0) {
-                                nBytes = getSocket().read(buffers, offset, length);
-                                updateLastRead();
-                            }
-                        } else {
-                            boolean doWrite = true;
-                            // Write from main buffer first
+                        }
+                        if (nBytes == 0) {
+                            nBytes = getSocket().read(buffers, offset, length);
+                            updateLastRead();
+                        }
+                    } else {
+                        boolean doWrite = true;
+                        // Write from main buffer first
+                        if (socketOrNetworkBufferHasDataLeft()) {
+                            // There is still data inside the main write buffer, it needs to be written first
+                            socketBufferHandler.configureWriteBufferForRead();
+                            do {
+                                nBytes = getSocket().write(socketBufferHandler.getWriteBuffer());
+                            } while (socketOrNetworkBufferHasDataLeft() && nBytes > 0);
                             if (socketOrNetworkBufferHasDataLeft()) {
-                                // There is still data inside the main write buffer, it needs to be written first
-                                socketBufferHandler.configureWriteBufferForRead();
-                                do {
-                                    nBytes = getSocket().write(socketBufferHandler.getWriteBuffer());
-                                } while (socketOrNetworkBufferHasDataLeft() && nBytes > 0);
-                                if (socketOrNetworkBufferHasDataLeft()) {
-                                    doWrite = false;
-                                }
-                                // Preserve a negative value since it is an error
-                                if (nBytes > 0) {
-                                    nBytes = 0;
-                                }
+                                doWrite = false;
                             }
-                            if (doWrite) {
-                                // 先算出总数，避免多次调用write
-                                long total = 0;
-                                for (int i = 0, len = buffers.length; i < len; i++)
-                                    total += buffers[i].remaining();
-                                long n;
-                                do {
-                                    n = getSocket().write(buffers, offset, length);
-                                    if (n == -1) {
-                                        nBytes = n;
-                                    } else {
-                                        nBytes += n;
-                                    }
-                                } while (n > 0 && nBytes < total);
-                                updateLastWrite();
+                            // Preserve a negative value since it is an error
+                            if (nBytes > 0) {
+                                nBytes = 0;
                             }
                         }
-                        if (nBytes != 0 || (!buffersArrayHasRemaining(buffers, offset, length)
-                                && (read || !socketOrNetworkBufferHasDataLeft()))) {
-                            completionDone = false;
+                        if (doWrite) {
+                            // 先算出总数，避免多次调用write
+                            long total = 0;
+                            for (int i = 0, len = buffers.length; i < len; i++)
+                                total += buffers[i].remaining();
+                            long n;
+                            do {
+                                n = getSocket().write(buffers, offset, length);
+                                if (n == -1) {
+                                    nBytes = n;
+                                } else {
+                                    nBytes += n;
+                                }
+                            } while (n > 0 && nBytes < total);
+                            updateLastWrite();
                         }
+                    }
+                    if (nBytes != 0 || (!buffersArrayHasRemaining(buffers, offset, length)
+                            && (read || !socketOrNetworkBufferHasDataLeft()))) {
+                        completionDone = false;
                     }
                 } catch (IOException ioe) {
                     setError(ioe);

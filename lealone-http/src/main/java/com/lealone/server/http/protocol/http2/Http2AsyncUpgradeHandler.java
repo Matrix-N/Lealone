@@ -26,8 +26,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import com.lealone.server.http.protocol.Adapter;
 import com.lealone.server.http.protocol.ProtocolException;
@@ -42,12 +40,6 @@ import com.lealone.server.servlet.http.WebConnection;
 public class Http2AsyncUpgradeHandler extends Http2UpgradeHandler {
 
     private static final ByteBuffer[] BYTEBUFFER_ARRAY = new ByteBuffer[0];
-    // Ensures headers are generated and then written for one thread at a time.
-    // Because of the compression used, headers need to be written to the
-    // network in the same order they are generated.
-    private final Lock headerWriteLock = new ReentrantLock();
-    // Ensures thread triggers the stream reset is the first to send a RST frame
-    private final Lock sendResetLock = new ReentrantLock();
     private final AtomicReference<Throwable> error = new AtomicReference<>();
     private final AtomicReference<IOException> applicationIOE = new AtomicReference<>();
 
@@ -142,29 +134,16 @@ public class Http2AsyncUpgradeHandler extends Http2UpgradeHandler {
         // Payload
         ByteUtil.setFourBytes(rstFrame, 9, se.getError().getCode());
 
-        // Need to update state atomically with the sending of the RST
-        // frame else other threads currently working with this stream
-        // may see the state change and send a RST frame before the RST
-        // frame triggered by this thread. If that happens the client
-        // may see out of order RST frames which may hard to follow if
-        // the client is unaware the RST frames may be received out of
-        // order.
-        sendResetLock.lock();
-        try {
-            if (state != null) {
-                boolean active = state.isActive();
-                state.sendReset();
-                if (active) {
-                    decrementActiveRemoteStreamCount(getStream(se.getStreamId()));
-                }
+        if (state != null) {
+            boolean active = state.isActive();
+            state.sendReset();
+            if (active) {
+                decrementActiveRemoteStreamCount(getStream(se.getStreamId()));
             }
-
-            socketWrapper.write(BlockingMode.SEMI_BLOCK, protocol.getWriteTimeout(),
-                    TimeUnit.MILLISECONDS, null, SocketWrapper.COMPLETE_WRITE, errorCompletion,
-                    ByteBuffer.wrap(rstFrame));
-        } finally {
-            sendResetLock.unlock();
         }
+
+        socketWrapper.write(BlockingMode.SEMI_BLOCK, protocol.getWriteTimeout(), TimeUnit.MILLISECONDS,
+                null, SocketWrapper.COMPLETE_WRITE, errorCompletion, ByteBuffer.wrap(rstFrame));
         handleAsyncException();
     }
 
@@ -198,18 +177,13 @@ public class Http2AsyncUpgradeHandler extends Http2UpgradeHandler {
     void writeHeaders(Stream stream, MimeHeaders mimeHeaders, boolean endOfStream, int payloadSize)
             throws IOException {
         // socketWrapper.startWrite();
-        headerWriteLock.lock();
-        try {
-            AsyncHeaderFrameBuffers headerFrameBuffers = (AsyncHeaderFrameBuffers) doWriteHeaders(stream,
-                    mimeHeaders, endOfStream, payloadSize);
-            if (headerFrameBuffers != null) {
-                socketWrapper.write(BlockingMode.SEMI_BLOCK, protocol.getWriteTimeout(),
-                        TimeUnit.MILLISECONDS, null, SocketWrapper.COMPLETE_WRITE,
-                        applicationErrorCompletion, headerFrameBuffers.bufs.toArray(BYTEBUFFER_ARRAY));
-                handleAsyncException();
-            }
-        } finally {
-            headerWriteLock.unlock();
+        AsyncHeaderFrameBuffers headerFrameBuffers = (AsyncHeaderFrameBuffers) doWriteHeaders(stream,
+                mimeHeaders, endOfStream, payloadSize);
+        if (headerFrameBuffers != null) {
+            socketWrapper.write(BlockingMode.SEMI_BLOCK, protocol.getWriteTimeout(),
+                    TimeUnit.MILLISECONDS, null, SocketWrapper.COMPLETE_WRITE,
+                    applicationErrorCompletion, headerFrameBuffers.bufs.toArray(BYTEBUFFER_ARRAY));
+            handleAsyncException();
         }
         if (endOfStream) {
             // socketWrapper.flush();
@@ -513,7 +487,6 @@ public class Http2AsyncUpgradeHandler extends Http2UpgradeHandler {
                 handleAsyncException();
             }
         }
-
     }
 
     private static class AsyncHeaderFrameBuffers implements HeaderFrameBuffers {

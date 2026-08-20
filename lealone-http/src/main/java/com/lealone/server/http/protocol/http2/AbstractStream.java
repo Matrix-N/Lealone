@@ -40,8 +40,8 @@ abstract class AbstractStream {
     protected final Lock windowAllocationLock = new ReentrantLock();
     protected final Condition windowAllocationAvailable = windowAllocationLock.newCondition();
 
-    private volatile int connectionAllocationRequested = 0;
-    private volatile int connectionAllocationMade = 0;
+    private int connectionAllocationRequested = 0;
+    private int connectionAllocationMade = 0;
 
     AbstractStream(Integer identifier) {
         this.identifier = identifier;
@@ -75,24 +75,14 @@ abstract class AbstractStream {
      * @param windowSize the value
      */
     final void setWindowSize(long windowSize) {
-        windowAllocationLock.lock();
-        try {
-            this.windowSize = windowSize;
-        } finally {
-            windowAllocationLock.unlock();
-        }
+        this.windowSize = windowSize;
     }
 
     /**
      * @return the window size
      */
     final long getWindowSize() {
-        windowAllocationLock.lock();
-        try {
-            return windowSize;
-        } finally {
-            windowAllocationLock.unlock();
-        }
+        return windowSize;
     }
 
     /**
@@ -103,29 +93,24 @@ abstract class AbstractStream {
      * @throws Http2Exception If the window size is now higher than the maximum allowed
      */
     void incrementWindowSize(int increment) throws Http2Exception {
-        windowAllocationLock.lock();
-        try {
-            // No need for overflow protection here.
-            // Increment can't be more than Integer.MAX_VALUE and once windowSize
-            // goes beyond 2^31-1 an error is triggered.
-            windowSize += increment;
+        // No need for overflow protection here.
+        // Increment can't be more than Integer.MAX_VALUE and once windowSize
+        // goes beyond 2^31-1 an error is triggered.
+        windowSize += increment;
 
-            if (log.isTraceEnabled()) {
-                log.trace(sm.getString("abstractStream.windowSizeInc", getConnectionId(),
-                        getIdAsString(), Integer.toString(increment), Long.toString(windowSize)));
-            }
+        if (log.isTraceEnabled()) {
+            log.trace(sm.getString("abstractStream.windowSizeInc", getConnectionId(), getIdAsString(),
+                    Integer.toString(increment), Long.toString(windowSize)));
+        }
 
-            if (windowSize > ConnectionSettingsBase.MAX_WINDOW_SIZE) {
-                String msg = sm.getString("abstractStream.windowSizeTooBig", getConnectionId(),
-                        identifier, Integer.toString(increment), Long.toString(windowSize));
-                if (identifier.intValue() == 0) {
-                    throw new ConnectionException(msg, Http2Error.FLOW_CONTROL_ERROR);
-                } else {
-                    throw new StreamException(msg, Http2Error.FLOW_CONTROL_ERROR, identifier.intValue());
-                }
+        if (windowSize > ConnectionSettingsBase.MAX_WINDOW_SIZE) {
+            String msg = sm.getString("abstractStream.windowSizeTooBig", getConnectionId(), identifier,
+                    Integer.toString(increment), Long.toString(windowSize));
+            if (identifier.intValue() == 0) {
+                throw new ConnectionException(msg, Http2Error.FLOW_CONTROL_ERROR);
+            } else {
+                throw new StreamException(msg, Http2Error.FLOW_CONTROL_ERROR, identifier.intValue());
             }
-        } finally {
-            windowAllocationLock.unlock();
         }
     }
 
@@ -135,18 +120,13 @@ abstract class AbstractStream {
      * @param decrement The amount by which the window size should be decreased
      */
     final void decrementWindowSize(int decrement) {
-        windowAllocationLock.lock();
-        try {
-            // No need for overflow protection here. Decrement can never be larger
-            // the Integer.MAX_VALUE and once windowSize goes negative no further
-            // decrements are permitted
-            windowSize -= decrement;
-            if (log.isTraceEnabled()) {
-                log.trace(sm.getString("abstractStream.windowSizeDec", getConnectionId(),
-                        getIdAsString(), Integer.toString(decrement), Long.toString(windowSize)));
-            }
-        } finally {
-            windowAllocationLock.unlock();
+        // No need for overflow protection here. Decrement can never be larger
+        // the Integer.MAX_VALUE and once windowSize goes negative no further
+        // decrements are permitted
+        windowSize -= decrement;
+        if (log.isTraceEnabled()) {
+            log.trace(sm.getString("abstractStream.windowSizeDec", getConnectionId(), getIdAsString(),
+                    Integer.toString(decrement), Long.toString(windowSize)));
         }
     }
 
@@ -163,9 +143,11 @@ abstract class AbstractStream {
      * @param connectionAllocationRequested the value
      */
     final void setConnectionAllocationRequested(int connectionAllocationRequested) {
-        log.trace(sm.getString("abstractStream.setConnectionAllocationRequested", getConnectionId(),
-                getIdAsString(), Integer.toString(this.connectionAllocationRequested),
-                Integer.toString(connectionAllocationRequested)));
+        if (log.isTraceEnabled()) {
+            log.trace(sm.getString("abstractStream.setConnectionAllocationRequested", getConnectionId(),
+                    getIdAsString(), Integer.toString(this.connectionAllocationRequested),
+                    Integer.toString(connectionAllocationRequested)));
+        }
         this.connectionAllocationRequested = connectionAllocationRequested;
     }
 
@@ -182,9 +164,11 @@ abstract class AbstractStream {
      * @param connectionAllocationMade the value
      */
     final void setConnectionAllocationMade(int connectionAllocationMade) {
-        log.trace(sm.getString("abstractStream.setConnectionAllocationMade", getConnectionId(),
-                getIdAsString(), Integer.toString(this.connectionAllocationMade),
-                Integer.toString(connectionAllocationMade)));
+        if (log.isTraceEnabled()) {
+            log.trace(sm.getString("abstractStream.setConnectionAllocationMade", getConnectionId(),
+                    getIdAsString(), Integer.toString(this.connectionAllocationMade),
+                    Integer.toString(connectionAllocationMade)));
+        }
         this.connectionAllocationMade = connectionAllocationMade;
     }
 

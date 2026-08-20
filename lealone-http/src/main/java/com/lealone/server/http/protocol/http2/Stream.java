@@ -49,7 +49,6 @@ import com.lealone.server.http.protocol.util.parser.Priority;
 import com.lealone.server.http.util.buf.ByteChunk;
 import com.lealone.server.http.util.buf.MessageBytes;
 import com.lealone.server.http.util.net.ApplicationBufferHandler;
-import com.lealone.server.http.util.net.WriteBuffer;
 import com.lealone.server.http.util.res.StringManager;
 import com.lealone.server.servlet.RequestDispatcher;
 
@@ -82,7 +81,7 @@ class Stream extends AbstractNonZeroStream implements HeaderEmitter {
         HTTP_CONNECTION_SPECIFIC_HEADERS.add("upgrade");
     }
 
-    private volatile long contentLengthReceived = 0;
+    private long contentLengthReceived = 0;
 
     private final Http2UpgradeHandler handler;
     private final WindowAllocationManager allocationManager = new WindowAllocationManager(this);
@@ -97,17 +96,17 @@ class Stream extends AbstractNonZeroStream implements HeaderEmitter {
     private int headerState = HEADER_STATE_START;
     private StreamException headerException = null;
 
-    private volatile StringBuilder cookieHeader = null;
-    private volatile boolean hostHeaderSeen = false;
+    private StringBuilder cookieHeader = null;
+    private boolean hostHeaderSeen = false;
 
     private final Object pendingWindowUpdateForStreamLock = new Object();
     private int pendingWindowUpdateForStream = 0;
 
-    private volatile int urgency = Priority.DEFAULT_URGENCY;
-    private volatile boolean incremental = Priority.DEFAULT_INCREMENTAL;
+    private int urgency = Priority.DEFAULT_URGENCY;
+    private boolean incremental = Priority.DEFAULT_INCREMENTAL;
 
     private final Object recycledLock = new Object();
-    private volatile boolean recycled = false;
+    private boolean recycled = false;
 
     Stream(Integer identifier, Http2UpgradeHandler handler) {
         this(identifier, handler, null);
@@ -239,45 +238,40 @@ class Stream extends AbstractNonZeroStream implements HeaderEmitter {
     }
 
     final int reserveWindowSize(int reservation, boolean block) throws IOException {
-        windowAllocationLock.lock();
-        try {
-            long windowSize = getWindowSize();
-            while (windowSize < 1) {
-                if (!canWrite()) {
-                    throw new CloseNowException(
-                            sm.getString("stream.notWritable", getConnectionId(), getIdAsString()));
-                }
-                if (block) {
-                    try {
-                        long writeTimeout = handler.getProtocol().getStreamWriteTimeout();
-                        allocationManager.waitForStream(writeTimeout);
-                        windowSize = getWindowSize();
-                        if (windowSize == 0) {
-                            doStreamCancel(sm.getString("stream.writeTimeout"),
-                                    Http2Error.ENHANCE_YOUR_CALM);
-                        }
-                    } catch (InterruptedException e) {
-                        // Possible shutdown / rst or similar. Use an IOException to
-                        // signal to the client that further I/O isn't possible for this
-                        // Stream.
-                        throw new IOException(e);
+        long windowSize = getWindowSize();
+        while (windowSize < 1) {
+            if (!canWrite()) {
+                throw new CloseNowException(
+                        sm.getString("stream.notWritable", getConnectionId(), getIdAsString()));
+            }
+            if (block) {
+                try {
+                    long writeTimeout = handler.getProtocol().getStreamWriteTimeout();
+                    allocationManager.waitForStream(writeTimeout);
+                    windowSize = getWindowSize();
+                    if (windowSize == 0) {
+                        doStreamCancel(sm.getString("stream.writeTimeout"),
+                                Http2Error.ENHANCE_YOUR_CALM);
                     }
-                } else {
-                    allocationManager.waitForStreamNonBlocking();
-                    return 0;
+                } catch (InterruptedException e) {
+                    // Possible shutdown / rst or similar. Use an IOException to
+                    // signal to the client that further I/O isn't possible for this
+                    // Stream.
+                    throw new IOException(e);
                 }
-            }
-            int allocation;
-            if (windowSize < reservation) {
-                allocation = (int) windowSize;
             } else {
-                allocation = reservation;
+                allocationManager.waitForStreamNonBlocking();
+                return 0;
             }
-            decrementWindowSize(allocation);
-            return allocation;
-        } finally {
-            windowAllocationLock.unlock();
         }
+        int allocation;
+        if (windowSize < reservation) {
+            allocation = (int) windowSize;
+        } else {
+            allocation = reservation;
+        }
+        decrementWindowSize(allocation);
+        return allocation;
     }
 
     void doStreamCancel(String msg, Http2Error error) throws CloseNowException {
@@ -817,8 +811,11 @@ class Stream extends AbstractNonZeroStream implements HeaderEmitter {
         } else {
             remaining = inputByteBuffer.remaining();
         }
-        handler.replaceStream(this,
-                new RecycledStream(getConnectionId(), getIdentifier(), state, remaining));
+        if (remaining == 0)
+            handler.removeStream(this);
+        else
+            handler.replaceStream(this,
+                    new RecycledStream(getConnectionId(), getIdentifier(), state, remaining));
     }
 
     /*
@@ -845,13 +842,7 @@ class Stream extends AbstractNonZeroStream implements HeaderEmitter {
             log.warn(sm.getString("stream.recycle.duplicate", getConnectionId(), getIdAsString()));
             return;
         }
-        synchronized (recycledLock) {
-            if (recycled) {
-                log.warn(sm.getString("stream.recycle.duplicate", getConnectionId(), getIdAsString()));
-                return;
-            }
-            recycled = true;
-        }
+        recycled = true;
         if (log.isTraceEnabled()) {
             log.trace(sm.getString("stream.recycle.first", getConnectionId(), getIdAsString()));
         }
@@ -922,170 +913,92 @@ class Stream extends AbstractNonZeroStream implements HeaderEmitter {
         }
     }
 
-    class StreamOutputBuffer implements HttpOutputBuffer, WriteBuffer.Sink {
+    class StreamOutputBuffer implements HttpOutputBuffer {
 
-        private final Lock writeLock = new ReentrantLock();
-        // private final ByteBuffer buffer = SchedulerThread.currentScheduler().getOutputBuffer()
-        // .getByteBuffer();
-        private final ByteBuffer buffer = ByteBuffer.allocate(8 * 1024);
-        private final WriteBuffer writeBuffer = new WriteBuffer(32 * 1024);
         // Flag that indicates that data was left over on a previous
         // non-blocking write. Once set, this flag stays set until all the data
         // has been written.
         private boolean dataLeft;
-        private volatile long written = 0;
+        private long written = 0;
         private int streamReservation = 0;
-        private volatile boolean closed = false;
-        private volatile StreamException reset = null;
-        private volatile boolean endOfStreamSent = false;
+        private boolean closed = false;
+        private StreamException reset = null;
+        private boolean endOfStreamSent = false;
 
         /*
          * The write methods share a common lock to ensure that only one thread at a time is able to access the buffer.
          * Without this protection, a client that performed concurrent writes could corrupt the buffer.
          */
-
         @Override
         public final int doWrite(ByteBuffer chunk) throws IOException {
-            writeLock.lock();
-            try {
-                if (closed) {
-                    throw new IOException(
-                            sm.getString("stream.closed", getConnectionId(), getIdAsString()));
-                }
-                // chunk is always fully written
-                int result = chunk.remaining();
-                if (writeBuffer.isEmpty()) {
-                    int chunkLimit = chunk.limit();
-                    while (chunk.remaining() > 0) {
-                        int thisTime = Math.min(buffer.remaining(), chunk.remaining());
-                        chunk.limit(chunk.position() + thisTime);
-                        buffer.put(chunk);
-                        chunk.limit(chunkLimit);
-                        if (chunk.remaining() > 0 && !buffer.hasRemaining()) {
-                            // Only flush if we have more data to write and the buffer
-                            // is full
-                            if (flush(true, coyoteResponse.getWriteListener() == null)) {
-                                writeBuffer.add(chunk);
-                                dataLeft = true;
-                                break;
-                            }
-                        }
-                    }
-                } else {
-                    writeBuffer.add(chunk);
-                }
-                written += result;
-                return result;
-            } finally {
-                writeLock.unlock();
+            if (closed) {
+                throw new IOException(sm.getString("stream.closed", getConnectionId(), getIdAsString()));
             }
+            // chunk is always fully written
+            int result = chunk.remaining();
+            flush(true, coyoteResponse.getWriteListener() == null, chunk);
+            written += result;
+            return result;
         }
 
-        final boolean flush(boolean block) throws IOException {
-            writeLock.lock();
-            try {
-                /*
-                 * Need to ensure that there is exactly one call to flush even when there is no data to write. Too few
-                 * calls (i.e. zero) and the end of stream message is not sent for a completed asynchronous write. Too
-                 * many calls and the end of stream message is sent too soon and trailer headers are not sent.
-                 */
-                boolean dataInBuffer = buffer.position() > 0;
-                boolean flushed = false;
-
-                if (dataInBuffer) {
-                    dataInBuffer = flush(false, block);
-                    flushed = true;
-                }
-
-                if (dataInBuffer) {
-                    dataLeft = true;
-                } else {
-                    if (writeBuffer.isEmpty()) {
-                        // Both buffer and writeBuffer are empty.
-                        if (flushed) {
-                            dataLeft = false;
-                        } else {
-                            dataLeft = flush(false, block);
-                        }
-                    } else {
-                        dataLeft = writeBuffer.write(this, block);
-                    }
-                }
-
-                return dataLeft;
-            } finally {
-                writeLock.unlock();
-            }
+        private boolean flush(boolean block) throws IOException {
+            return flush(false, block, null);
         }
 
-        private boolean flush(boolean writeInProgress, boolean block) throws IOException {
-            writeLock.lock();
-            try {
-                if (log.isTraceEnabled()) {
-                    log.trace(sm.getString("stream.outputBuffer.flush.debug", getConnectionId(),
-                            getIdAsString(), Integer.toString(buffer.position()),
-                            Boolean.toString(writeInProgress), Boolean.toString(closed)));
+        private boolean flush(boolean writeInProgress, boolean block, ByteBuffer buffer)
+                throws IOException {
+            if (log.isTraceEnabled()) {
+                log.trace(sm.getString("stream.outputBuffer.flush.debug", getConnectionId(),
+                        getIdAsString(), Integer.toString(buffer.position()),
+                        Boolean.toString(writeInProgress), Boolean.toString(closed)));
+            }
+            if (buffer == null)
+                buffer = ZERO_LENGTH_BYTEBUFFER;
+            int left = buffer.remaining();
+            if (left < 9000) {
+                closed = true;
+                writeInProgress = false;
+            }
+            if (left == 0) {
+                if (closed && !endOfStreamSent) {
+                    // Handling this special case here is simpler than trying
+                    // to modify the following code to handle it.
+                    handler.writeBody(Stream.this, buffer, 0, coyoteResponse.getTrailerFields() == null);
                 }
-                if (buffer.position() == 0) {
-                    if (closed && !endOfStreamSent) {
-                        // Handling this special case here is simpler than trying
-                        // to modify the following code to handle it.
-                        handler.writeBody(Stream.this, buffer, 0,
-                                coyoteResponse.getTrailerFields() == null);
-                    }
-                    // Buffer is empty. Nothing to do.
-                    return false;
-                }
-                buffer.flip();
-                int left = buffer.remaining();
-                while (left > 0) {
-                    if (streamReservation == 0) {
-                        streamReservation = reserveWindowSize(left, block);
-                        if (streamReservation == 0) {
-                            // Must be non-blocking.
-                            // Note: Can't add to the writeBuffer here as the write
-                            // may originate from the writeBuffer.
-                            buffer.compact();
-                            return true;
-                        }
-                    }
-                    while (streamReservation > 0) {
-                        int connectionReservation = handler.reserveWindowSize(Stream.this,
-                                streamReservation, block);
-                        if (connectionReservation == 0) {
-                            // Must be non-blocking.
-                            // Note: Can't add to the writeBuffer here as the write
-                            // may originate from the writeBuffer.
-                            buffer.compact();
-                            return true;
-                        }
-                        // Do the write
-                        handler.writeBody(Stream.this, buffer, connectionReservation,
-                                !writeInProgress && closed && left == connectionReservation
-                                        && coyoteResponse.getTrailerFields() == null);
-                        streamReservation -= connectionReservation;
-                        left -= connectionReservation;
-                    }
-                }
-                buffer.clear();
+                // Buffer is empty. Nothing to do.
                 return false;
-            } finally {
-                writeLock.unlock();
             }
+            while (left > 0) {
+                if (streamReservation == 0) {
+                    streamReservation = reserveWindowSize(left, block);
+                    if (streamReservation == 0) {
+                        return true;
+                    }
+                }
+                while (streamReservation > 0) {
+                    int connectionReservation = handler.reserveWindowSize(Stream.this, streamReservation,
+                            block);
+                    if (connectionReservation == 0) {
+                        return true;
+                    }
+                    // Do the write
+                    handler.writeBody(Stream.this, buffer, connectionReservation,
+                            !writeInProgress && closed && left == connectionReservation
+                                    && coyoteResponse.getTrailerFields() == null);
+                    streamReservation -= connectionReservation;
+                    left -= connectionReservation;
+                }
+            }
+            return false;
         }
 
         final boolean isReady() {
-            writeLock.lock();
-            try {
-                // Bug 63682
-                // Only want to return false if the window size is zero AND we are
-                // already waiting for an allocation.
-                return (getWindowSize() <= 0 || !allocationManager.isWaitingForStream())
-                        && (handler.getWindowSize() <= 0 || !allocationManager.isWaitingForConnection())
-                        && !dataLeft;
-            } finally {
-                writeLock.unlock();
-            }
+            // Bug 63682
+            // Only want to return false if the window size is zero AND we are
+            // already waiting for an allocation.
+            return (getWindowSize() <= 0 || !allocationManager.isWaitingForStream())
+                    && (handler.getWindowSize() <= 0 || !allocationManager.isWaitingForConnection())
+                    && !dataLeft;
         }
 
         @Override
@@ -1121,26 +1034,6 @@ class Stream extends AbstractNonZeroStream implements HeaderEmitter {
              * non-blocking I/O based depending on which is currently in use.
              */
             flush(getCoyoteResponse().getWriteListener() == null);
-        }
-
-        @Override
-        public boolean writeFromBuffer(ByteBuffer src, boolean blocking) throws IOException {
-            writeLock.lock();
-            try {
-                int chunkLimit = src.limit();
-                while (src.remaining() > 0) {
-                    int thisTime = Math.min(buffer.remaining(), src.remaining());
-                    src.limit(src.position() + thisTime);
-                    buffer.put(src);
-                    src.limit(chunkLimit);
-                    if (flush(false, blocking)) {
-                        return true;
-                    }
-                }
-                return false;
-            } finally {
-                writeLock.unlock();
-            }
         }
     }
 
@@ -1186,12 +1079,12 @@ class Stream extends AbstractNonZeroStream implements HeaderEmitter {
         private byte[] outBuffer;
         // This buffer is the destination for incoming data. It is normally is
         // 'write mode'.
-        private volatile ByteBuffer inBuffer;
-        private volatile boolean readInterest;
+        private ByteBuffer inBuffer;
+        private boolean readInterest;
         // If readInterest is true, data must be available to read no later than this time.
-        private volatile long readTimeoutExpiry;
-        private volatile boolean closed;
-        private volatile boolean resetReceived;
+        private long readTimeoutExpiry;
+        private boolean closed;
+        private boolean resetReceived;
 
         @Override
         public final int doRead(ApplicationBufferHandler applicationBufferHandler) throws IOException {

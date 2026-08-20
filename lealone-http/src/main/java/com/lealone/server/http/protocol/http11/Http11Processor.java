@@ -98,17 +98,17 @@ public class Http11Processor extends AbstractProcessor {
     /**
      * Keep-alive.
      */
-    private volatile boolean keepAlive = true;
+    private boolean keepAlive = true;
 
     /**
      * Flag used to indicate that the socket should be kept open (e.g. for keep alive or send file).
      */
-    private volatile boolean openSocket = false;
+    private boolean openSocket = false;
 
     /**
      * Flag that indicates if the request headers have been completely read.
      */
-    private volatile boolean readComplete = true;
+    private boolean readComplete = true;
 
     /**
      * HTTP/1.1 flag.

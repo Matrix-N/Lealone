@@ -49,7 +49,7 @@ public class Http11OutputBuffer implements HttpOutputBuffer {
      */
     protected final Response response;
 
-    private volatile boolean ackSent = false;
+    private boolean ackSent = false;
 
     /**
      * Finished flag.

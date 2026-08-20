@@ -22,13 +22,13 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ConcurrentNavigableMap;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -48,11 +48,11 @@ import com.lealone.server.http.protocol.util.MimeHeaders;
 import com.lealone.server.http.protocol.util.parser.Priority;
 import com.lealone.server.http.util.ExceptionUtils;
 import com.lealone.server.http.util.log.UserDataHelper;
+import com.lealone.server.http.util.net.AbstractEndpoint.Handler.SocketState;
 import com.lealone.server.http.util.net.SSLSupport;
 import com.lealone.server.http.util.net.SendfileState;
 import com.lealone.server.http.util.net.SocketEvent;
 import com.lealone.server.http.util.net.SocketWrapper;
-import com.lealone.server.http.util.net.AbstractEndpoint.Handler.SocketState;
 import com.lealone.server.http.util.res.StringManager;
 import com.lealone.server.servlet.ServletConnection;
 import com.lealone.server.servlet.http.WebConnection;
@@ -104,14 +104,14 @@ class Http2UpgradeHandler extends AbstractStream implements InternalHttpUpgradeH
     protected final Http2Protocol protocol;
     private final Adapter adapter;
     protected final SocketWrapper<?> socketWrapper;
-    private volatile SSLSupport sslSupport;
+    private SSLSupport sslSupport;
 
-    private volatile Http2Parser parser;
+    private Http2Parser parser;
 
     // Simple state machine (sequence of states)
     private final AtomicReference<ConnectionState> connectionState = new AtomicReference<>(
             ConnectionState.NEW);
-    private volatile long pausedNanoTime = Long.MAX_VALUE;
+    private long pausedNanoTime = Long.MAX_VALUE;
 
     /**
      * Remote settings are settings defined by the client and sent to Tomcat that Tomcat must use when communicating
@@ -127,16 +127,16 @@ class Http2UpgradeHandler extends AbstractStream implements InternalHttpUpgradeH
     private HpackDecoder hpackDecoder;
     private HpackEncoder hpackEncoder;
 
-    private final ConcurrentNavigableMap<Integer, AbstractNonZeroStream> streams = new ConcurrentSkipListMap<>();
+    private final HashMap<Integer, AbstractNonZeroStream> streams = new HashMap<>();
     protected final AtomicInteger activeRemoteStreamCount = new AtomicInteger(0);
-    private volatile int maxProcessedStreamId;
+    private int maxProcessedStreamId;
     private final PingManager pingManager = getPingManager();
-    private volatile int newStreamsSinceLastPrune = 0;
+    private int newStreamsSinceLastPrune = 0;
     private final Set<Stream> backLogStreams = new HashSet<>();
     private long backLogSize = 0;
     // The time at which the connection will timeout unless data arrives before
     // then. -1 means no timeout.
-    private volatile long connectionTimeout = -1;
+    private long connectionTimeout = -1;
 
     // Stream concurrency control
     private AtomicInteger streamConcurrency = null;
@@ -144,8 +144,8 @@ class Http2UpgradeHandler extends AbstractStream implements InternalHttpUpgradeH
 
     // Track 'overhead' frames vs 'request/response' frames
     private final AtomicLong overheadCount;
-    private volatile int lastNonFinalDataPayload;
-    private volatile int lastWindowUpdate;
+    private int lastNonFinalDataPayload;
+    private int lastWindowUpdate;
 
     // Time between the "graceful" GOAWAY (max stream id) and the final GOAWAY (last seen stream id)
     private long drainTimeout = 0;
@@ -214,7 +214,7 @@ class Http2UpgradeHandler extends AbstractStream implements InternalHttpUpgradeH
         // Init concurrency control if needed
         if (protocol.getMaxConcurrentStreamExecution() < localSettings.getMaxConcurrentStreams()) {
             streamConcurrency = new AtomicInteger(0);
-            queuedRunnable = new ConcurrentLinkedQueue<>();
+            queuedRunnable = new LinkedList<>();
         }
 
         parser = getParser(connectionId);
@@ -881,102 +881,91 @@ class Http2UpgradeHandler extends AbstractStream implements InternalHttpUpgradeH
          * enters wait().
          */
         int allocation = 0;
-        stream.windowAllocationLock.lock();
-        try {
-            windowAllocationLock.lock();
-            try {
-                if (!stream.canWrite()) {
-                    stream.doStreamCancel(
-                            sm.getString("upgradeHandler.stream.notWritable", stream.getConnectionId(),
-                                    stream.getIdAsString(), stream.state.getCurrentStateName()),
-                            Http2Error.STREAM_CLOSED);
-                }
-                long windowSize = getWindowSize();
-                if (stream.getConnectionAllocationMade() > 0) {
-                    // The stream is/was in the backlog and has been granted an allocation - use it.
-                    allocation = stream.getConnectionAllocationMade();
-                    stream.setConnectionAllocationMade(0);
-                } else if (windowSize < 1) {
-                    /*
-                     * The connection window has no capacity. If the stream has not been granted an allocation, and the
-                     * stream was not already added to the backlog due to a partial reservation (see next else if block)
-                     * add it to the backlog so it can obtain an allocation when capacity is available.
-                     */
-                    if (stream.getConnectionAllocationMade() == 0
-                            && stream.getConnectionAllocationRequested() == 0) {
-                        stream.setConnectionAllocationRequested(reservation);
-                        backLogSize += reservation;
-                        backLogStreams.add(stream);
-                    }
-                } else if (windowSize < reservation) {
-                    /*
-                     * The connection window has some capacity but not enough to fill this reservation. Allocate what
-                     * capacity is available and add the stream to the backlog so it can obtain a further allocation
-                     * when capacity is available.
-                     */
-                    allocation = (int) windowSize;
-                    decrementWindowSize(allocation);
-                    int reservationRemaining = reservation - allocation;
-                    stream.setConnectionAllocationRequested(reservationRemaining);
-                    backLogSize += reservationRemaining;
-                    backLogStreams.add(stream);
+        if (!stream.canWrite()) {
+            stream.doStreamCancel(
+                    sm.getString("upgradeHandler.stream.notWritable", stream.getConnectionId(),
+                            stream.getIdAsString(), stream.state.getCurrentStateName()),
+                    Http2Error.STREAM_CLOSED);
+        }
+        long windowSize = getWindowSize();
+        if (stream.getConnectionAllocationMade() > 0) {
+            // The stream is/was in the backlog and has been granted an allocation - use it.
+            allocation = stream.getConnectionAllocationMade();
+            stream.setConnectionAllocationMade(0);
+        } else if (windowSize < 1) {
+            /*
+             * The connection window has no capacity. If the stream has not been granted an allocation, and the
+             * stream was not already added to the backlog due to a partial reservation (see next else if block)
+             * add it to the backlog so it can obtain an allocation when capacity is available.
+             */
+            if (stream.getConnectionAllocationMade() == 0
+                    && stream.getConnectionAllocationRequested() == 0) {
+                stream.setConnectionAllocationRequested(reservation);
+                backLogSize += reservation;
+                backLogStreams.add(stream);
+            }
+        } else if (windowSize < reservation) {
+            /*
+             * The connection window has some capacity but not enough to fill this reservation. Allocate what
+             * capacity is available and add the stream to the backlog so it can obtain a further allocation
+             * when capacity is available.
+             */
+            allocation = (int) windowSize;
+            decrementWindowSize(allocation);
+            int reservationRemaining = reservation - allocation;
+            stream.setConnectionAllocationRequested(reservationRemaining);
+            backLogSize += reservationRemaining;
+            backLogStreams.add(stream);
 
-                } else {
-                    // The connection window has sufficient capacity for this reservation. Allocate the full amount.
-                    allocation = reservation;
-                    decrementWindowSize(allocation);
-                }
-            } finally {
-                windowAllocationLock.unlock();
-            }
-            if (allocation == 0) {
-                if (block) {
-                    try {
-                        // Connection level window is empty. Although this
-                        // request is for a stream, use the connection
-                        // timeout
-                        long writeTimeout = protocol.getWriteTimeout();
-                        stream.waitForConnectionAllocation(writeTimeout);
-                        // Has this stream been granted an allocation
-                        if (stream.getConnectionAllocationMade() == 0) {
-                            String msg;
-                            Http2Error error;
-                            if (stream.isActive()) {
-                                if (log.isDebugEnabled()) {
-                                    log.debug(sm.getString("upgradeHandler.noAllocation", connectionId,
-                                            stream.getIdAsString()));
-                                }
-                                // No allocation
-                                // Close the connection. Do this first since
-                                // closing the stream will raise an exception.
-                                close();
-                                msg = sm.getString("stream.writeTimeout");
-                                error = Http2Error.ENHANCE_YOUR_CALM;
-                            } else {
-                                msg = sm.getString("upgradeHandler.clientCancel");
-                                error = Http2Error.STREAM_CLOSED;
+        } else {
+            // The connection window has sufficient capacity for this reservation. Allocate the full amount.
+            allocation = reservation;
+            decrementWindowSize(allocation);
+        }
+        if (allocation == 0) {
+            if (block) {
+                try {
+                    // Connection level window is empty. Although this
+                    // request is for a stream, use the connection
+                    // timeout
+                    long writeTimeout = protocol.getWriteTimeout();
+                    stream.waitForConnectionAllocation(writeTimeout);
+                    // Has this stream been granted an allocation
+                    if (stream.getConnectionAllocationMade() == 0) {
+                        String msg;
+                        Http2Error error;
+                        if (stream.isActive()) {
+                            if (log.isDebugEnabled()) {
+                                log.debug(sm.getString("upgradeHandler.noAllocation", connectionId,
+                                        stream.getIdAsString()));
                             }
-                            // Close the stream
-                            // This thread is in application code so need
-                            // to signal to the application that the
-                            // stream is closing
-                            stream.doStreamCancel(msg, error);
+                            // No allocation
+                            // Close the connection. Do this first since
+                            // closing the stream will raise an exception.
+                            close();
+                            msg = sm.getString("stream.writeTimeout");
+                            error = Http2Error.ENHANCE_YOUR_CALM;
                         } else {
-                            allocation = stream.getConnectionAllocationMade();
-                            stream.setConnectionAllocationMade(0);
+                            msg = sm.getString("upgradeHandler.clientCancel");
+                            error = Http2Error.STREAM_CLOSED;
                         }
-                    } catch (InterruptedException e) {
-                        throw new IOException(sm.getString(
-                                "upgradeHandler.windowSizeReservationInterrupted", connectionId,
-                                stream.getIdAsString(), Integer.toString(reservation)), e);
+                        // Close the stream
+                        // This thread is in application code so need
+                        // to signal to the application that the
+                        // stream is closing
+                        stream.doStreamCancel(msg, error);
+                    } else {
+                        allocation = stream.getConnectionAllocationMade();
+                        stream.setConnectionAllocationMade(0);
                     }
-                } else {
-                    stream.waitForConnectionAllocationNonBlocking();
-                    return 0;
+                } catch (InterruptedException e) {
+                    throw new IOException(sm.getString("upgradeHandler.windowSizeReservationInterrupted",
+                            connectionId, stream.getIdAsString(), Integer.toString(reservation)), e);
                 }
+            } else {
+                stream.waitForConnectionAllocationNonBlocking();
+                return 0;
             }
-        } finally {
-            stream.windowAllocationLock.unlock();
         }
         return allocation;
     }
@@ -984,21 +973,14 @@ class Http2UpgradeHandler extends AbstractStream implements InternalHttpUpgradeH
     @Override
     protected void incrementWindowSize(int increment) throws Http2Exception {
         Set<AbstractStream> streamsToNotify = null;
-
-        windowAllocationLock.lock();
-        try {
-            long windowSize = getWindowSize();
-            if (windowSize < 1 && windowSize + increment > 0) {
-                // Connection window is exhausted. Assume there will be streams
-                // to notify. The overhead is minimal if there are none.
-                streamsToNotify = releaseBackLog((int) (windowSize + increment));
-            } else {
-                super.incrementWindowSize(increment);
-            }
-        } finally {
-            windowAllocationLock.unlock();
+        long windowSize = getWindowSize();
+        if (windowSize < 1 && windowSize + increment > 0) {
+            // Connection window is exhausted. Assume there will be streams
+            // to notify. The overhead is minimal if there are none.
+            streamsToNotify = releaseBackLog((int) (windowSize + increment));
+        } else {
+            super.incrementWindowSize(increment);
         }
-
         if (streamsToNotify != null) {
             for (AbstractStream stream : streamsToNotify) {
                 if (log.isTraceEnabled()) {
@@ -1753,6 +1735,10 @@ class Http2UpgradeHandler extends AbstractStream implements InternalHttpUpgradeH
         // NO-OP.
     }
 
+    void removeStream(AbstractNonZeroStream original) {
+        streams.remove(original.getIdentifier());
+    }
+
     void replaceStream(AbstractNonZeroStream original, AbstractNonZeroStream replacement) {
         AbstractNonZeroStream current = streams.get(original.getIdentifier());
         /*
@@ -1795,7 +1781,7 @@ class Http2UpgradeHandler extends AbstractStream implements InternalHttpUpgradeH
         // 10 seconds
         protected final long pingIntervalNano = 10000000000L;
 
-        protected volatile int sequence = 0;
+        protected int sequence = 0;
         protected long lastPingNanoTime = Long.MIN_VALUE;
 
         protected Queue<PingRecord> inflightPings = new ConcurrentLinkedQueue<>();

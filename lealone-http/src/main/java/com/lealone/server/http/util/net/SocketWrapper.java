@@ -22,18 +22,16 @@ import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.channels.CompletionHandler;
 import java.nio.channels.InterruptedByTimeoutException;
-import java.nio.channels.ReadPendingException;
 import java.nio.channels.Selector;
-import java.nio.channels.WritePendingException;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 import com.lealone.common.logging.Logger;
 import com.lealone.common.logging.LoggerFactory;
+import com.lealone.db.scheduler.Scheduler;
 import com.lealone.db.session.Session;
+import com.lealone.net.NetBuffer;
 import com.lealone.net.TransferOutputStream.GlobalWritableChannel;
 import com.lealone.server.http.util.ExceptionUtils;
 import com.lealone.server.http.util.res.StringManager;
@@ -58,16 +56,16 @@ public abstract class SocketWrapper<E> {
     private E socket;
     private final AbstractEndpoint<E, ?> endpoint;
 
-    protected final AtomicBoolean closed = new AtomicBoolean(false);
+    protected boolean closed;
 
     // Volatile because I/O and setting the timeout values occurs on a different
     // thread to the thread checking the timeout.
-    private volatile long readTimeout = -1;
-    private volatile long writeTimeout = -1;
+    private long readTimeout = -1;
+    private long writeTimeout = -1;
 
-    protected volatile IOException previousIOException = null;
+    protected IOException previousIOException = null;
 
-    private volatile int keepAliveLeft = 100;
+    private int keepAliveLeft = 100;
     private String negotiatedProtocol = null;
 
     private final String connectionId;
@@ -81,7 +79,7 @@ public abstract class SocketWrapper<E> {
     protected String remoteAddr = null;
     protected String remoteHost = null;
     protected int remotePort = -1;
-    protected volatile ServletConnection servletConnection = null;
+    protected ServletConnection servletConnection = null;
 
     protected String sniHostName = null;
 
@@ -89,12 +87,12 @@ public abstract class SocketWrapper<E> {
      * Used to record the first IOException that occurs during non-blocking read/writes that can't be usefully
      * propagated up the stack since there is no user code or appropriate container code in the stack to handle it.
      */
-    private volatile IOException error = null;
+    private IOException error = null;
 
     /**
      * The buffers used for communicating with the socket.
      */
-    protected volatile SocketBufferHandler socketBufferHandler = null;
+    protected SocketBufferHandler socketBufferHandler = null;
 
     /**
      * The max size of the individual buffered write buffers
@@ -110,12 +108,7 @@ public abstract class SocketWrapper<E> {
      */
     protected final WriteBuffer nonBlockingWriteBuffer = new WriteBuffer(bufferedWriteSize);
 
-    /*
-     * Asynchronous operations.
-     */
-    protected final Semaphore readPending;
     protected OperationState<?> readOperation = null;
-    protected final Semaphore writePending;
     protected OperationState<?> writeOperation = null;
     protected Selector selector;
 
@@ -124,18 +117,11 @@ public abstract class SocketWrapper<E> {
      * maintain wrapper<->Processor mapping between calls to
      * {@link AbstractEndpoint.Handler#process(SocketWrapper, SocketEvent)}.
      */
-    private final AtomicReference<Object> currentProcessor = new AtomicReference<>();
+    private Object currentProcessor;
 
     public SocketWrapper(E socket, AbstractEndpoint<E, ?> endpoint) {
         this.socket = socket;
         this.endpoint = endpoint;
-        if (endpoint.getUseAsyncIO() || needSemaphores()) {
-            readPending = new Semaphore(1);
-            writePending = new Semaphore(1);
-        } else {
-            readPending = null;
-            writePending = null;
-        }
         connectionId = Long.toHexString(connectionIdGenerator.getAndIncrement());
     }
 
@@ -160,15 +146,17 @@ public abstract class SocketWrapper<E> {
     }
 
     public Object getCurrentProcessor() {
-        return currentProcessor.get();
+        return currentProcessor;
     }
 
     public void setCurrentProcessor(Object currentProcessor) {
-        this.currentProcessor.set(currentProcessor);
+        this.currentProcessor = currentProcessor;
     }
 
     public Object takeCurrentProcessor() {
-        return currentProcessor.getAndSet(null);
+        Object processor = currentProcessor;
+        currentProcessor = null;
+        return processor;
     }
 
     public IOException getError() {
@@ -414,7 +402,7 @@ public abstract class SocketWrapper<E> {
      * Close the socket wrapper.
      */
     public void close() {
-        if (closed.compareAndSet(false, true)) {
+        if (!closed) {
             try {
                 getEndpoint().getHandler().release(this);
             } catch (Throwable t) {
@@ -423,6 +411,7 @@ public abstract class SocketWrapper<E> {
                     log.error(sm.getString("endpoint.debug.handlerRelease"), t);
                 }
             } finally {
+                closed = true;
                 doClose();
             }
         }
@@ -437,7 +426,7 @@ public abstract class SocketWrapper<E> {
      * @return true if the wrapper has been closed
      */
     public boolean isClosed() {
-        return closed.get();
+        return closed;
     }
 
     /**
@@ -902,14 +891,12 @@ public abstract class SocketWrapper<E> {
         protected final BlockingMode block;
         protected final CompletionCheck check;
         protected final CompletionHandler<Long, ? super A> handler;
-        protected final Semaphore semaphore;
         protected final VectoredIOCompletionHandler<A> completion;
         protected final AtomicBoolean callHandler;
 
         protected OperationState(boolean read, ByteBuffer[] buffers, int offset, int length,
                 BlockingMode block, long timeout, TimeUnit unit, A attachment, CompletionCheck check,
-                CompletionHandler<Long, ? super A> handler, Semaphore semaphore,
-                VectoredIOCompletionHandler<A> completion) {
+                CompletionHandler<Long, ? super A> handler, VectoredIOCompletionHandler<A> completion) {
             this.read = read;
             this.buffers = buffers;
             this.offset = offset;
@@ -920,13 +907,12 @@ public abstract class SocketWrapper<E> {
             this.attachment = attachment;
             this.check = check;
             this.handler = handler;
-            this.semaphore = semaphore;
             this.completion = completion;
             callHandler = (handler != null) ? new AtomicBoolean(true) : null;
         }
 
-        protected volatile long nBytes = 0;
-        protected volatile CompletionState state = CompletionState.PENDING;
+        protected long nBytes = 0;
+        protected CompletionState state = CompletionState.PENDING;
         protected boolean completionDone = true;
 
         /**
@@ -984,38 +970,20 @@ public abstract class SocketWrapper<E> {
                     }
                 }
                 if (complete) {
-                    boolean notify = false;
                     if (state.read) {
                         readOperation = null;
                     } else {
                         writeOperation = null;
                     }
-                    // Semaphore must be released after [read|write]Operation is cleared
-                    // to ensure that the next thread to hold the semaphore hasn't
-                    // written a new value to [read|write]Operation by the time it is
-                    // cleared.
-                    state.semaphore.release();
-                    if (state.block == BlockingMode.BLOCK && currentState != CompletionState.INLINE) {
-                        notify = true;
-                    } else {
-                        state.state = currentState;
-                    }
+                    state.state = currentState;
                     state.end();
                     if (completion && state.handler != null
                             && state.callHandler.compareAndSet(true, false)) {
                         state.handler.completed(Long.valueOf(state.nBytes), state.attachment);
                     }
-                    synchronized (state) {
-                        state.completionDone = true;
-                        if (notify) {
-                            state.state = currentState;
-                            state.notify();
-                        }
-                    }
+                    state.completionDone = true;
                 } else {
-                    synchronized (state) {
-                        state.completionDone = true;
-                    }
+                    state.completionDone = true;
                     state.run();
                 }
             }
@@ -1031,33 +999,17 @@ public abstract class SocketWrapper<E> {
                 ioe = (IOException) exc;
             }
             setError(ioe);
-            boolean notify = false;
             if (state.read) {
                 readOperation = null;
             } else {
                 writeOperation = null;
             }
-            // Semaphore must be released after [read|write]Operation is cleared
-            // to ensure that the next thread to hold the semaphore hasn't
-            // written a new value to [read|write]Operation by the time it is
-            // cleared.
-            state.semaphore.release();
-            if (state.block == BlockingMode.BLOCK) {
-                notify = true;
-            } else {
-                state.state = state.isInline() ? CompletionState.ERROR : CompletionState.DONE;
-            }
+            state.state = state.isInline() ? CompletionState.ERROR : CompletionState.DONE;
             state.end();
             if (state.handler != null && state.callHandler.compareAndSet(true, false)) {
                 state.handler.failed(exc, state.attachment);
             }
-            synchronized (state) {
-                state.completionDone = true;
-                if (notify) {
-                    state.state = state.isInline() ? CompletionState.ERROR : CompletionState.DONE;
-                    state.notify();
-                }
-            }
+            state.completionDone = true;
         }
     }
 
@@ -1067,17 +1019,7 @@ public abstract class SocketWrapper<E> {
      * @return {@code true} if the connector has the capability enabled
      */
     public boolean hasAsyncIO() {
-        // The semaphores are only created if async IO is enabled
-        return (readPending != null);
-    }
-
-    /**
-     * Allows indicating if the connector needs semaphores.
-     *
-     * @return This default implementation always returns {@code false}
-     */
-    public boolean needSemaphores() {
-        return false;
+        return true;
     }
 
     /**
@@ -1298,78 +1240,21 @@ public abstract class SocketWrapper<E> {
                 setWriteTimeout(unit.toMillis(timeout));
             }
         }
-        if (block == BlockingMode.BLOCK || block == BlockingMode.SEMI_BLOCK) {
-            try {
-                if (read ? !readPending.tryAcquire(timeout, unit)
-                        : !writePending.tryAcquire(timeout, unit)) {
-                    handler.failed(new SocketTimeoutException(), attachment);
-                    return CompletionState.ERROR;
-                }
-            } catch (InterruptedException e) {
-                handler.failed(e, attachment);
-                return CompletionState.ERROR;
-            }
-        } else {
-            if (read ? !readPending.tryAcquire() : !writePending.tryAcquire()) {
-                if (block == BlockingMode.NON_BLOCK) {
-                    return CompletionState.NOT_DONE;
-                } else {
-                    handler.failed(read ? new ReadPendingException() : new WritePendingException(),
-                            attachment);
-                    return CompletionState.ERROR;
-                }
-            }
-        }
         VectoredIOCompletionHandler<A> completion = new VectoredIOCompletionHandler<>();
         OperationState<A> state = newOperationState(read, buffers, offset, length, block, timeout, unit,
-                attachment, check, handler, read ? readPending : writePending, completion);
+                attachment, check, handler, completion);
         if (read) {
             readOperation = state;
         } else {
             writeOperation = state;
         }
         state.start();
-        if (block == BlockingMode.BLOCK) {
-            synchronized (state) {
-                if (state.state == CompletionState.PENDING) {
-                    try {
-                        long timeoutExpiry = System.nanoTime() + unit.toNanos(timeout);
-                        long timeoutMillis = unit.toMillis(timeout);
-                        // Spurious wake-ups are possible. Keep waiting until state changes or timeout expires.
-                        while (state.state == CompletionState.PENDING && timeoutMillis > 0) {
-                            state.wait(unit.toMillis(timeout));
-                            timeoutMillis = (timeoutExpiry - System.nanoTime()) / 1_000_000;
-                        }
-                        if (state.state == CompletionState.PENDING) {
-                            if (handler != null && state.callHandler.compareAndSet(true, false)) {
-                                handler.failed(new SocketTimeoutException(getTimeoutMsg(read)),
-                                        attachment);
-                            }
-                            return CompletionState.ERROR;
-                        }
-                    } catch (InterruptedException e) {
-                        if (handler != null && state.callHandler.compareAndSet(true, false)) {
-                            handler.failed(new SocketTimeoutException(getTimeoutMsg(read)), attachment);
-                        }
-                        return CompletionState.ERROR;
-                    }
-                }
-            }
-        }
         return state.state;
-    }
-
-    private String getTimeoutMsg(boolean read) {
-        if (read) {
-            return sm.getString("socketWrapper.readTimeout");
-        } else {
-            return sm.getString("socketWrapper.writeTimeout");
-        }
     }
 
     protected abstract <A> OperationState<A> newOperationState(boolean read, ByteBuffer[] buffers,
             int offset, int length, BlockingMode block, long timeout, TimeUnit unit, A attachment,
-            CompletionCheck check, CompletionHandler<Long, ? super A> handler, Semaphore semaphore,
+            CompletionCheck check, CompletionHandler<Long, ? super A> handler,
             VectoredIOCompletionHandler<A> completion);
 
     // --------------------------------------------------------- Utility methods
@@ -1468,6 +1353,12 @@ public abstract class SocketWrapper<E> {
         this.schedulerId = schedulerId;
     }
 
+    private Scheduler scheduler;
+
+    public void setScheduler(Scheduler scheduler) {
+        this.scheduler = scheduler;
+    }
+
     private GlobalWritableChannel globalWritableChannel;
 
     public GlobalWritableChannel getGlobalWritableChannel() {
@@ -1488,5 +1379,32 @@ public abstract class SocketWrapper<E> {
 
     public int flush() {
         return globalWritableChannel.flush();
+    }
+
+    public NetBuffer createReadableBuffer(int packetLength) {
+        return scheduler.getInputBuffer().createReadableBuffer(scheduler.getInputBuffer().position(),
+                packetLength);
+    }
+
+    private NetBuffer[] buffers;
+
+    public void setNetBuffers(NetBuffer... buffers) {
+        if (this.buffers == null) {
+            this.buffers = buffers;
+        } else {
+            int len = this.buffers.length + buffers.length;
+            NetBuffer[] newBuffers = new NetBuffer[len];
+            System.arraycopy(this.buffers, 0, newBuffers, 0, this.buffers.length);
+            System.arraycopy(buffers, 0, newBuffers, this.buffers.length, buffers.length);
+            this.buffers = newBuffers;
+        }
+    }
+
+    public void recycleNetBuffers() {
+        if (buffers != null) {
+            for (int i = 0, size = buffers.length; i < size; i++)
+                buffers[i].recycle();
+            buffers = null;
+        }
     }
 }

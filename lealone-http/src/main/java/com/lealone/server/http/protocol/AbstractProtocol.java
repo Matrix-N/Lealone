@@ -876,7 +876,8 @@ public abstract class AbstractProtocol<S> implements ProtocolHandler {
          */
         @Override
         public SocketState process(SocketWrapper<S> wrapper, SocketEvent status) {
-            if (getLog().isTraceEnabled()) {
+            boolean isTraceEnabled = getLog().isTraceEnabled();
+            if (isTraceEnabled) {
                 getLog().trace(
                         sm.getString("abstractConnectionHandler.process", wrapper.getSocket(), status));
             }
@@ -887,7 +888,7 @@ public abstract class AbstractProtocol<S> implements ProtocolHandler {
             // held by this variable will be associated with the SocketWrapper before this
             // method returns.
             Processor processor = (Processor) wrapper.takeCurrentProcessor();
-            if (getLog().isTraceEnabled()) {
+            if (isTraceEnabled) {
                 getLog().trace(
                         sm.getString("abstractConnectionHandler.connectionsGet", processor, socket));
             }
@@ -923,7 +924,7 @@ public abstract class AbstractProtocol<S> implements ProtocolHandler {
                         if (upgradeProtocol != null) {
                             processor = upgradeProtocol.getProcessor(wrapper,
                                     getProtocol().getAdapter());
-                            if (getLog().isTraceEnabled()) {
+                            if (isTraceEnabled) {
                                 getLog().trace(sm.getString("abstractConnectionHandler.processorCreate",
                                         processor));
                             }
@@ -954,7 +955,7 @@ public abstract class AbstractProtocol<S> implements ProtocolHandler {
                 }
                 if (processor == null) {
                     processor = popProcessor(wrapper.getSchedulerId());
-                    if (getLog().isTraceEnabled()) {
+                    if (isTraceEnabled) {
                         getLog().trace(
                                 sm.getString("abstractConnectionHandler.processorPop", processor));
                     }
@@ -962,7 +963,7 @@ public abstract class AbstractProtocol<S> implements ProtocolHandler {
                 if (processor == null) {
                     processor = getProtocol().createProcessor();
                     register(processor);
-                    if (getLog().isTraceEnabled()) {
+                    if (isTraceEnabled) {
                         getLog().trace(
                                 sm.getString("abstractConnectionHandler.processorCreate", processor));
                     }
@@ -1005,7 +1006,7 @@ public abstract class AbstractProtocol<S> implements ProtocolHandler {
                             release(processor, wrapper);
                             // Create the upgrade processor
                             processor = getProtocol().createUpgradeProcessor(wrapper, upgradeToken);
-                            if (getLog().isTraceEnabled()) {
+                            if (isTraceEnabled) {
                                 getLog().trace(sm.getString("abstractConnectionHandler.upgradeCreate",
                                         processor, wrapper));
                             }

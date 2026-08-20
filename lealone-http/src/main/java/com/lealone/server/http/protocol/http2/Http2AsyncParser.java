@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.CompletionHandler;
 import java.util.concurrent.TimeUnit;
 
+import com.lealone.net.NetBuffer;
 import com.lealone.server.http.protocol.ProtocolException;
 import com.lealone.server.http.util.net.SocketEvent;
 import com.lealone.server.http.util.net.SocketWrapper;
@@ -34,7 +35,7 @@ class Http2AsyncParser extends Http2Parser {
 
     private final SocketWrapper<?> socketWrapper;
     private final Http2AsyncUpgradeHandler upgradeHandler;
-    private volatile Throwable error = null;
+    private Throwable error = null;
 
     Http2AsyncParser(String connectionId, Input input, Output output, SocketWrapper<?> socketWrapper,
             Http2AsyncUpgradeHandler upgradeHandler) {
@@ -48,8 +49,11 @@ class Http2AsyncParser extends Http2Parser {
     void readConnectionPreface(WebConnection webConnection, Stream stream) throws Http2Exception {
         byte[] prefaceData = new byte[CLIENT_PREFACE_START.length];
         ByteBuffer preface = ByteBuffer.wrap(prefaceData);
-        ByteBuffer header = ByteBuffer.allocate(9);
-        ByteBuffer framePayload = ByteBuffer.allocate(input.getMaxFrameSize());
+        NetBuffer headerBuffer = socketWrapper.createReadableBuffer(9);
+        NetBuffer framePayloadBuffer = socketWrapper.createReadableBuffer(input.getMaxFrameSize());
+        ByteBuffer header = headerBuffer.getByteBuffer();
+        ByteBuffer framePayload = framePayloadBuffer.getByteBuffer();
+        socketWrapper.setNetBuffers(headerBuffer, framePayloadBuffer);
         PrefaceCompletionHandler handler = new PrefaceCompletionHandler(webConnection, stream,
                 prefaceData, preface, header, framePayload);
         socketWrapper.read(BlockingMode.NON_BLOCK, socketWrapper.getReadTimeout(), TimeUnit.MILLISECONDS,
@@ -62,7 +66,7 @@ class Http2AsyncParser extends Http2Parser {
         private final Stream stream;
         private final byte[] prefaceData;
 
-        private volatile boolean prefaceValidated = false;
+        private boolean prefaceValidated = false;
 
         private PrefaceCompletionHandler(WebConnection webConnection, Stream stream, byte[] prefaceData,
                 ByteBuffer... buffers) {
@@ -132,8 +136,11 @@ class Http2AsyncParser extends Http2Parser {
     @Override
     protected boolean readFrame(boolean block, FrameType expected) throws IOException, Http2Exception {
         handleAsyncException();
-        ByteBuffer header = ByteBuffer.allocate(9);
-        ByteBuffer framePayload = ByteBuffer.allocate(input.getMaxFrameSize());
+        NetBuffer headerBuffer = socketWrapper.createReadableBuffer(9);
+        NetBuffer framePayloadBuffer = socketWrapper.createReadableBuffer(input.getMaxFrameSize());
+        ByteBuffer header = headerBuffer.getByteBuffer();
+        ByteBuffer framePayload = framePayloadBuffer.getByteBuffer();
+        socketWrapper.setNetBuffers(headerBuffer, framePayloadBuffer);
         FrameCompletionHandler handler = new FrameCompletionHandler(expected, header, framePayload);
         CompletionState state = socketWrapper.read(block ? BlockingMode.BLOCK : BlockingMode.NON_BLOCK,
                 block ? socketWrapper.getReadTimeout() : 0, TimeUnit.MILLISECONDS, null, handler,
@@ -167,15 +174,15 @@ class Http2AsyncParser extends Http2Parser {
         private final FrameType expected;
         protected final ByteBuffer[] buffers;
 
-        private volatile boolean parsedFrameHeader = false;
-        private volatile boolean validated = false;
-        private volatile CompletionState state = null;
-        protected volatile int payloadSize;
-        protected volatile int frameTypeId;
-        protected volatile FrameType frameType;
-        protected volatile int flags;
-        protected volatile int streamId;
-        protected volatile boolean streamException = false;
+        private boolean parsedFrameHeader = false;
+        private boolean validated = false;
+        private CompletionState state = null;
+        protected int payloadSize;
+        protected int frameTypeId;
+        protected FrameType frameType;
+        protected int flags;
+        protected int streamId;
+        protected boolean streamException = false;
 
         private FrameCompletionHandler(FrameType expected, ByteBuffer... buffers) {
             this.expected = expected;
@@ -241,6 +248,7 @@ class Http2AsyncParser extends Http2Parser {
                 try {
                     boolean continueParsing;
                     do {
+                        // long t1 = System.nanoTime();
                         continueParsing = false;
                         if (streamException) {
                             swallowPayload(streamId, frameTypeId, payloadSize, false, payload);
@@ -309,6 +317,7 @@ class Http2AsyncParser extends Http2Parser {
                                 }
                             }
                         }
+                        // System.out.println("h2 time: " + (System.nanoTime() - t1) / 1000);
                     } while (continueParsing);
                 } catch (RuntimeException | IOException | Http2Exception e) {
                     error = e;
@@ -319,6 +328,7 @@ class Http2AsyncParser extends Http2Parser {
                 }
             }
             if (state == CompletionState.DONE) {
+                recycleNetBuffers();
                 // The call was not completed inline, so must start reading new frames
                 // or process the stream exception
                 upgradeHandler.upgradeDispatch(SocketEvent.OPEN_READ);
@@ -327,6 +337,7 @@ class Http2AsyncParser extends Http2Parser {
 
         @Override
         public void failed(Throwable e, Void attachment) {
+            recycleNetBuffers();
             // Always a fatal IO error
             error = e;
             if (log.isDebugEnabled()) {
@@ -336,6 +347,10 @@ class Http2AsyncParser extends Http2Parser {
             if (state == null || state == CompletionState.DONE) {
                 upgradeHandler.upgradeDispatch(SocketEvent.ERROR);
             }
+        }
+
+        public void recycleNetBuffers() {
+            socketWrapper.recycleNetBuffers();
         }
     }
 }

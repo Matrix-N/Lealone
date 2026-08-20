@@ -29,9 +29,9 @@ import com.lealone.server.http.protocol.InputBuffer;
 import com.lealone.server.http.protocol.Request;
 import com.lealone.server.http.protocol.util.HeaderUtil;
 import com.lealone.server.http.protocol.util.parser.HttpHeaderParser;
-import com.lealone.server.http.protocol.util.parser.HttpParser;
 import com.lealone.server.http.protocol.util.parser.HttpHeaderParser.HeaderDataSource;
 import com.lealone.server.http.protocol.util.parser.HttpHeaderParser.HeaderParseStatus;
+import com.lealone.server.http.protocol.util.parser.HttpParser;
 import com.lealone.server.http.util.net.ApplicationBufferHandler;
 import com.lealone.server.http.util.net.SocketWrapper;
 import com.lealone.server.http.util.res.StringManager;
@@ -61,7 +61,7 @@ public class Http11InputBuffer implements InputBuffer, ApplicationBufferHandler,
     /**
      * State.
      */
-    private volatile boolean parsingHeader;
+    private boolean parsingHeader;
 
     /**
      * Swallow input ? (in the case of an expectation)
@@ -108,7 +108,7 @@ public class Http11InputBuffer implements InputBuffer, ApplicationBufferHandler,
      */
     private byte prevChr = 0;
     private byte chr = 0;
-    private volatile boolean parsingRequestLine;
+    private boolean parsingRequestLine;
     private int parsingRequestLinePhase;
     private boolean parsingRequestLineEol;
     private int parsingRequestLineStart;
@@ -241,10 +241,6 @@ public class Http11InputBuffer implements InputBuffer, ApplicationBufferHandler,
         parsingRequestLineStart = 0;
         parsingRequestLineQPos = -1;
         httpHeaderParser.recycle();
-        // Recycled last because they are volatile
-        // All variables visible to this thread are guaranteed to be visible to
-        // any other thread once that thread reads the same volatile. The first
-        // action when parsing input data is to read one of these volatiles.
         parsingRequestLine = true;
         parsingHeader = true;
     }

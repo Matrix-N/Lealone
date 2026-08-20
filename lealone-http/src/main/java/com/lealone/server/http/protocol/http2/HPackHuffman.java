@@ -19,7 +19,6 @@ package com.lealone.server.http.protocol.http2;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Locale;
 import java.util.Set;
 
 import com.lealone.server.http.protocol.util.parser.HttpParser;
@@ -367,23 +366,6 @@ public class HPackHuffman {
      * Decodes a huffman encoded string into the target StringBuilder. There must be enough space left in the buffer for
      * this method to succeed.
      *
-     * @param data   The byte buffer
-     * @param length The length of data from the buffer to decode
-     * @param target The target for the decompressed data
-     *
-     * @throws HpackException If the Huffman encoded value in HPACK headers did not end with EOS padding
-     *
-     * @deprecated Will be removed in Tomcat 12. Use {@link #decode(ByteBuffer, int, StringBuilder, boolean)}
-     */
-    @Deprecated
-    public static void decode(ByteBuffer data, int length, StringBuilder target) throws HpackException {
-        decode(data, length, target, false);
-    }
-
-    /**
-     * Decodes a huffman encoded string into the target StringBuilder. There must be enough space left in the buffer for
-     * this method to succeed.
-     *
      * @param data        The byte buffer
      * @param length      The length of data from the buffer to decode
      * @param target      The target for the decompressed data
@@ -499,27 +481,6 @@ public class HPackHuffman {
         if (!isFieldName && !HttpParser.isFieldVChar(c)) {
             throw new IllegalArgumentException(sm
                     .getString("hpackhuffman.decode.illegalCharacterValue.end", Character.toString(c)));
-        }
-    }
-
-    /**
-     * Encodes the given string into the buffer. If there is not enough space in the buffer, or the encoded version is
-     * bigger than the original it will return false and not modify the buffers position.
-     *
-     * @param buffer         The buffer to encode into
-     * @param toEncode       The string to encode
-     * @param forceLowercase If the string should be encoded in lower case
-     *
-     * @return true if encoding succeeded
-     *
-     * @deprecated Unused. This method will be removed in Tomcat 12 onwards.
-     */
-    @Deprecated
-    public static boolean encode(ByteBuffer buffer, String toEncode, boolean forceLowercase) {
-        if (forceLowercase) {
-            return encode(buffer, toEncode.toLowerCase(Locale.ENGLISH));
-        } else {
-            return encode(buffer, toEncode);
         }
     }
 

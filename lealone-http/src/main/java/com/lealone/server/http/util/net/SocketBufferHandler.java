@@ -39,11 +39,11 @@ public class SocketBufferHandler {
         }
     };
 
-    private volatile boolean readBufferConfiguredForWrite = true;
-    private volatile ByteBuffer readBuffer;
+    private boolean readBufferConfiguredForWrite = true;
+    private ByteBuffer readBuffer;
 
-    private volatile boolean writeBufferConfiguredForWrite = true;
-    private volatile ByteBuffer writeBuffer;
+    private boolean writeBufferConfiguredForWrite = true;
+    private ByteBuffer writeBuffer;
 
     private final boolean direct;
 
