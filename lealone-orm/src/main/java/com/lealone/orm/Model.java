@@ -24,6 +24,8 @@ import com.lealone.common.logging.LoggerFactory;
 import com.lealone.common.util.CaseInsensitiveMap;
 import com.lealone.common.util.StatementBuilder;
 import com.lealone.common.util.Utils;
+import com.lealone.db.async.AsyncCallback;
+import com.lealone.db.async.Future;
 import com.lealone.db.constraint.ConstraintReferential;
 import com.lealone.db.index.Index;
 import com.lealone.db.index.IndexColumn;
@@ -476,6 +478,62 @@ public abstract class Model<T extends Model<T>> {
         return null;
     }
 
+    public Future<T> findOneAsync() {
+        return findOneAsync(null);
+    }
+
+    public Future<T> findOneAsync(Long tid) {
+        checkDao("findOne");
+        // 进行关联查询时，主表取一条记录，但引用表要取多条
+        if (tableFilterStack != null && !tableFilterStack.isEmpty()) {
+            ServerSession session = getSession(tid);
+            AsyncCallback<T> ac = session.createCallback();
+            findListAsync(tid).onComplete(ar -> {
+                if (ar.isSucceeded()) {
+                    List<T> list = ar.getResult();
+                    if (list.isEmpty()) {
+                        ac.setAsyncResult((T) null);
+                    } else {
+                        ac.setAsyncResult(list.get(0));
+                    }
+                } else {
+                    ac.setAsyncResult(ar.getCause());
+                }
+            });
+            return ac;
+        }
+        Select select = createSelect(tid);
+        select.setLimit(ValueExpression.get(ValueInt.get(1)));
+        select.init();
+        select.prepare();
+        logSql(select);
+        AsyncCallback<T> ac = select.getSession().createCallback();
+        select.executeQuery(1).onComplete(ar -> {
+            if (ar.isSucceeded()) {
+                Result result = ar.getResult();
+                result.next();
+                reset();
+
+                Map<Class<?>, Map<Long, Model<?>>> map = new LinkedHashMap<>();
+                String[] fieldNames = getFieldNames(result);
+                Set<Model<?>> set = getAllAssociateInstances(fieldNames);
+                deserialize(result, fieldNames, set, map);
+                Map<Long, Model<?>> models = map.get(this.getClass());
+                if (models != null) {
+                    for (Model<?> m : models.values()) {
+                        m.bindAssociateInstances(map);
+                        ac.setAsyncResult((T) m);
+                        return;
+                    }
+                }
+                ac.setAsyncResult((T) null);
+            } else {
+                ac.setAsyncResult(ar.getCause());
+            }
+        });
+        return ac;
+    }
+
     // 如果select字段列表中没有加上引用约束的字段，那么自动加上
     private HashMap<String, ExpressionColumn> getRefConstraintColumns(HashSet<Table> tables) {
         CaseInsensitiveMap<ExpressionColumn> columnMap = new CaseInsensitiveMap<>();
@@ -747,6 +805,44 @@ public abstract class Model<T extends Model<T>> {
         return list;
     }
 
+    public Future<List<T>> findListAsync() {
+        return findListAsync(null);
+    }
+
+    public Future<List<T>> findListAsync(Long tid) {
+        checkDao("findList");
+        Select select = createSelect(tid);
+        select.init();
+        select.prepare();
+        logSql(select);
+
+        AsyncCallback<List<T>> ac = select.getSession().createCallback();
+        select.executeQuery(-1).onComplete(ar -> {
+            if (ar.isSucceeded()) {
+                Result result = ar.getResult();
+                reset();
+                Map<Class<?>, Map<Long, Model<?>>> map = new HashMap<>();
+                String[] fieldNames = getFieldNames(result);
+                Set<Model<?>> set = getAllAssociateInstances(fieldNames);
+                while (result.next()) {
+                    deserialize(result, fieldNames, set, map);
+                }
+                ArrayList<T> list = new ArrayList<>(result.getRowCount());
+                Map<Long, Model<?>> models = map.get(this.getClass());
+                if (models != null) {
+                    for (Model<?> m : models.values()) {
+                        m.bindAssociateInstances(map);
+                        list.add((T) m);
+                    }
+                }
+                ac.setAsyncResult(list);
+            } else {
+                ac.setAsyncResult(ar.getCause());
+            }
+        });
+        return ac;
+    }
+
     private String[] getFieldNames(Result result) {
         int len = result.getVisibleColumnCount();
         String[] fieldNames = new String[len];
@@ -769,6 +865,29 @@ public abstract class Model<T extends Model<T>> {
             values[i] = USE_JACKSON ? list.get(i).encode() : ValueMap.get(list.get(i).toMap());
         }
         return new ReadonlyArray(DataType.convertToValue(values, Value.ARRAY));
+    }
+
+    public Future<Array> findArrayAsync() {
+        return findArrayAsync(null);
+    }
+
+    public Future<Array> findArrayAsync(Long tid) {
+        ServerSession session = getSession(tid);
+        AsyncCallback<Array> ac = session.createCallback();
+        findListAsync(tid).onComplete(ar -> {
+            if (ar.isSucceeded()) {
+                List<T> list = ar.getResult();
+                int size = list.size();
+                Object[] values = new Object[size];
+                for (int i = 0; i < size; i++) {
+                    values[i] = USE_JACKSON ? list.get(i).encode() : ValueMap.get(list.get(i).toMap());
+                }
+                ac.setAsyncResult(new ReadonlyArray(DataType.convertToValue(values, Value.ARRAY)));
+            } else {
+                ac.setAsyncResult(ar.getCause());
+            }
+        });
+        return ac;
     }
 
     public <M extends Model<M>> M m(Model<M> m) {
@@ -814,6 +933,35 @@ public abstract class Model<T extends Model<T>> {
         reset();
         result.next();
         return result.currentRow()[0].getInt();
+    }
+
+    public Future<Integer> findCountAsync() {
+        return findCountAsync(null);
+    }
+
+    public Future<Integer> findCountAsync(Long tid) {
+        checkDao("findCount");
+        Select select = createSelect(tid);
+        select.setGroupQuery();
+        getSelectExpressions().clear();
+        Aggregate a = Aggregate.create(Aggregate.COUNT_ALL, null, select, false);
+        getSelectExpressions().add(a);
+        select.setExpressions(getSelectExpressions());
+        select.init();
+        select.prepare();
+        logSql(select);
+        AsyncCallback<Integer> ac = select.getSession().createCallback();
+        select.executeQuery(-1).onComplete(ar -> {
+            if (ar.isSucceeded()) {
+                Result result = ar.getResult();
+                result.next();
+                reset();
+                ac.setAsyncResult(result.currentRow()[0].getInt());
+            } else {
+                ac.setAsyncResult(ar.getCause());
+            }
+        });
+        return ac;
     }
 
     private ServerSession getSession(Long tid) {
@@ -909,14 +1057,132 @@ public abstract class Model<T extends Model<T>> {
         return rowId;
     }
 
+    public Future<Long> insertAsync() {
+        return insertAsync(null);
+    }
+
+    public Future<Long> insertAsync(Long tid) {
+        // 必须设置字段值
+        if (nvPairs == null) {
+            throw new UnsupportedOperationException("No values insert");
+        }
+        // 不允许通过 X.dao来insert记录
+        if (isDao()) {
+            String name = this.getClass().getSimpleName();
+            throw new UnsupportedOperationException("The insert operation is not allowed for " + name
+                    + ".dao,  please use new " + name + "().insert() instead.");
+        }
+        // 批量提交子model需要在一个事务中执行
+        if (modelList != null) {
+            tid = beginTransaction();
+        }
+        ServerSession session = getSession(tid);
+        Table dbTable = modelTable.getTable();
+        Insert insert = new Insert(session);
+        int size = nvPairs.size();
+        Column[] columns = new Column[size];
+        Expression[] expressions = new Expression[size];
+        int i = 0;
+        for (NVPair p : nvPairs.values()) {
+            columns[i] = dbTable.getColumn(p.name);
+            expressions[i] = ValueExpression.get(p.value);
+            i++;
+        }
+        insert.setColumns(columns);
+        insert.addRow(expressions);
+        insert.setTable(dbTable);
+        insert.prepare();
+        logSql(insert);
+
+        final long tid2 = tid;
+        AsyncCallback<Long> ac = session.createCallback();
+        insert.executeUpdate().onComplete(ar -> {
+            if (ar.isFailed()) {
+                if (session.isAutoCommit())
+                    session.rollback();
+                reset();
+                ac.setAsyncResult(ar.getCause());
+                return;
+            }
+
+            long rowId = session.getLastIdentity(); // session.getLastRowKey()在事务提交时被设为null了
+            _rowid_.set(rowId);
+
+            // 找到mainIndexColumn并给它设置rowId
+            Index pk = dbTable.findPrimaryKey();
+            if (pk != null && pk.getIndexType().isDelegate()) {
+                IndexColumn ic = pk.getIndexColumns()[0];
+                String columnName = ic.column != null ? ic.column.getName() : ic.columnName;
+                for (ModelProperty p : modelProperties) {
+                    if (p.getName().equalsIgnoreCase(columnName)) {
+                        if (p instanceof PInteger)
+                            ((PBaseNumber) p).set((int) rowId);
+                        else
+                            ((PBaseNumber) p).set(rowId);
+                        break;
+                    }
+                }
+            }
+
+            if (modelList != null) {
+                try {
+                    for (Model<?> m : modelList) {
+                        m.insert(tid2);
+                    }
+                    commitTransaction(tid2);
+                } catch (Exception e) {
+                    rollbackTransaction(tid2);
+                    throw DbException.convert(e);
+                }
+            }
+            if (session.isAutoCommit()) {
+                session.commit();
+            }
+            reset();
+            ac.setAsyncResult(rowId);
+        });
+        return ac;
+    }
+
     public int update() {
         return update(null);
     }
 
     public int update(Long tid) {
+        // // 没有变化，直接返回0
+        // if (nvPairs == null) {
+        // return 0;
+        // }
+        // ServerSession session = getSession(tid);
+        // Table dbTable = modelTable.getTable();
+        // Update update = new Update(session);
+        // TableFilter tableFilter = new TableFilter(session, dbTable, null, true, null);
+        // update.setTableFilter(tableFilter);
+        // checkWhereExpression(dbTable, "update");
+        // if (whereExpressionBuilder != null)
+        // update.setCondition(whereExpressionBuilder.getExpression());
+        // for (NVPair p : nvPairs.values()) {
+        // update.setAssignment(dbTable.getColumn(p.name), ValueExpression.get(p.value));
+        // }
+        // update.prepare();
+        // reset();
+        // logSql(update);
+        // int count = update.executeUpdate().get();
+        // if (session.isAutoCommit()) {
+        // session.commit();
+        // }
+        // return count;
+        return updateAsync(tid).get();
+    }
+
+    public Future<Integer> updateAsync() {
+        return updateAsync(null);
+    }
+
+    public Future<Integer> updateAsync(Long tid) {
         // 没有变化，直接返回0
         if (nvPairs == null) {
-            return 0;
+            return Future.succeededFuture(0);
         }
         ServerSession session = getSession(tid);
         Table dbTable = modelTable.getTable();
@@ -932,11 +1198,17 @@ public abstract class Model<T extends Model<T>> {
         update.prepare();
         reset();
         logSql(update);
-        int count = update.executeUpdate().get();
-        if (session.isAutoCommit()) {
-            session.commit();
-        }
-        return count;
+        AsyncCallback<Integer> ac = session.createCallback();
+        update.executeUpdate().onComplete(ar -> {
+            if (session.isAutoCommit()) {
+                if (ar.isSucceeded())
+                    session.commit();
+                else
+                    session.rollback();
+            }
+            ac.setAsyncResult(ar);
+        });
+        return ac;
     }
 
     public int delete() {
@@ -944,6 +1216,30 @@ public abstract class Model<T extends Model<T>> {
     }
 
     public int delete(Long tid) {
+        // ServerSession session = getSession(tid);
+        // Table dbTable = modelTable.getTable();
+        // Delete delete = new Delete(session);
+        // TableFilter tableFilter = new TableFilter(session, dbTable, null, true, null);
+        // delete.setTableFilter(tableFilter);
+        // checkWhereExpression(dbTable, "delete");
+        // if (whereExpressionBuilder != null)
+        // delete.setCondition(whereExpressionBuilder.getExpression());
+        // delete.prepare();
+        // reset();
+        // logSql(delete);
+        // int count = delete.executeUpdate().get();
+        // if (session.isAutoCommit()) {
+        // session.commit();
+        // }
+        // return count;
+        return deleteAsync(tid).get();
+    }
+
+    public Future<Integer> deleteAsync() {
+        return deleteAsync(null);
+    }
+
+    public Future<Integer> deleteAsync(Long tid) {
         ServerSession session = getSession(tid);
         Table dbTable = modelTable.getTable();
         Delete delete = new Delete(session);
@@ -955,11 +1251,17 @@ public abstract class Model<T extends Model<T>> {
         delete.prepare();
         reset();
         logSql(delete);
-        int count = delete.executeUpdate().get();
-        if (session.isAutoCommit()) {
-            session.commit();
-        }
-        return count;
+        AsyncCallback<Integer> ac = session.createCallback();
+        delete.executeUpdate().onComplete(ar -> {
+            if (session.isAutoCommit()) {
+                if (ar.isSucceeded())
+                    session.commit();
+                else
+                    session.rollback();
+            }
+            ac.setAsyncResult(ar);
+        });
+        return ac;
     }
 
     private void checkWhereExpression(Table dbTable, String methodName) {
