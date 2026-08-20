@@ -203,6 +203,8 @@ public class AgentExecutor {
         int port = MapUtils.getInt(pse.getConfig(), "port", Constants.DEFAULT_TCP_PORT);
         File htmlFile = new File(webRoot, appName + ".html");
         try {
+            if (!htmlFile.getParentFile().exists())
+                htmlFile.getParentFile().mkdirs();
             Charset utf8 = Charset.forName("UTF-8");
             BufferedOutputStream file = new BufferedOutputStream(new FileOutputStream(htmlFile));
             file.write(content.toString().getBytes(utf8));
