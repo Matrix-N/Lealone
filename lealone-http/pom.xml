@@ -37,5 +37,18 @@
                 </configuration>
             </plugin>
         </plugins>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>src/main/java</directory>
+                <includes>
+                    <include>**/*.properties</include>
+                </includes>
+                <!-- 关闭资源过滤，防止文件内容被错误修改 -->
+                <filtering>false</filtering>
+            </resource>
+        </resources>
     </build>
 </project>
