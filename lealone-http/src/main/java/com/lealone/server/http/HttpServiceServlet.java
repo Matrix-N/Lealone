@@ -103,10 +103,13 @@ public class HttpServiceServlet extends HttpServlet {
 
     protected void sendHttpServiceResponse(HttpServletResponse response, String serviceName,
             String methodName, String result) throws IOException {
+        byte[] b = result.getBytes("utf-8");
+        response.setContentLength(b.length);
         response.setContentType("application/json; charset=utf-8");
         response.setHeader("Server", "Lealone HttpServer");
         response.setHeader("Access-Control-Allow-Origin", "*");
-        response.getOutputStream().write(result.getBytes("utf-8"));
+        // 快速写结果，不需要先放到中间的输出buffer中，避免内存拷贝
+        response.getOutputStream().writeAndFlush(b);
     }
 
     @SuppressWarnings("unchecked")

@@ -797,4 +797,8 @@ public class OutputBuffer extends Writer {
     private void toWriteMode(Buffer buffer) {
         buffer.mark().position(buffer.limit()).limit(buffer.capacity());
     }
+
+    public void writeAndFlush(byte[] b) throws IOException {
+        coyoteResponse.doWrite(ByteBuffer.wrap(b));
+    }
 }

@@ -345,4 +345,9 @@ public abstract class ServletOutputStream extends OutputStream {
     public void close() throws IOException {
         super.close();
     }
+
+    public void writeAndFlush(byte[] b) throws IOException {
+        write(b);
+        flush();
+    }
 }

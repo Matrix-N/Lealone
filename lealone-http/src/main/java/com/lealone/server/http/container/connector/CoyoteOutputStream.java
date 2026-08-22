@@ -194,4 +194,9 @@ public class CoyoteOutputStream extends ServletOutputStream {
         }
         throw ioe;
     }
+
+    @Override
+    public void writeAndFlush(byte[] b) throws IOException {
+        ob.writeAndFlush(b);
+    }
 }
