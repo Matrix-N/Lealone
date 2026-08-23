@@ -42,7 +42,7 @@ set llm (
 
 ### 氛围编程
 
-在 agent 窗口输入：实现一个 todo 应用
+在 agent 窗口输入：实现一个 todo 应用;
 
 等待20多秒后会返回一个 URL，用浏览器打开即可
 
@@ -71,12 +71,6 @@ execute service my_service get_current_time();
 ```sql
 
 -- 以下是 services.sql 文件的内容，也可以换成其他文件名
-
-set llm (
-    provider: 'doubao', --目前支持doubao和deepseek
-    model: 'doubao-seed-2-0-pro-260215',
-    api_key: '替换成你的apikey'
-);
 
 -- 下文出现的所有 url 都不是必需的，只是方便手工 copy 到浏览器测试
 -- 通过以下 url 调用服务：
