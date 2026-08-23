@@ -15,7 +15,6 @@ import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -189,25 +188,27 @@ public class AgentExecutor {
     private String vibeCoding(CodeAgent agent, String sql, String appName,
             AtomicReference<String> previousResponseId) {
         String userPrompt = """
-                按照服务接口生成完整的html代码，前端用“/service/服务名/方法名”这种格式调用后端服务，
-                只返回html代码，不要```html标记，不要返回其他的。
+                按照服务接口生成完整的 HTML 代码，前端用“/service/服务名/方法名”这种格式调用后端服务，
+                请直接输出纯 HTML 代码，不要使用 Markdown 代码块（如 ```html），
+                不要添加任何解释、说明或前后缀，只返回 HTML 内容本身。
                        """;
         logger.info("Agent execute sql: " + sql);
         session.createNestedSession().executeUpdateLocal(sql);
         if (!genFrontendCodeIfNeeded())
             return sql;
+        if (previousResponseId.get() == null)
+            previousResponseId.set(sql);
         String content = agent.send(userPrompt, previousResponseId);
         ProtocolServerEngine pse = PluginManager.getPlugin(ProtocolServerEngine.class, "HTTP");
         String webRoot = MapUtils.getString(pse.getConfig(), "web_root", "./web");
         String host = MapUtils.getString(pse.getConfig(), "host", Constants.DEFAULT_HOST);
-        int port = MapUtils.getInt(pse.getConfig(), "port", Constants.DEFAULT_TCP_PORT);
+        int port = MapUtils.getInt(pse.getConfig(), "port", Constants.DEFAULT_HTTP_PORT);
         File htmlFile = new File(webRoot, appName + ".html");
         try {
             if (!htmlFile.getParentFile().exists())
                 htmlFile.getParentFile().mkdirs();
-            Charset utf8 = Charset.forName("UTF-8");
             BufferedOutputStream file = new BufferedOutputStream(new FileOutputStream(htmlFile));
-            file.write(content.toString().getBytes(utf8));
+            file.write(content.getBytes("UTF-8"));
             file.close();
         } catch (IOException e) {
             throw DbException.convertIOException(e, "Failed to write html file: " + htmlFile);

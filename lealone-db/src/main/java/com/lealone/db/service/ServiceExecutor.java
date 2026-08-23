@@ -40,7 +40,13 @@ public interface ServiceExecutor {
 
     public default Integer toInt(String key, Map<String, Object> methodArgs) {
         String v = toString(key, methodArgs);
-        return v == null ? null : Integer.valueOf(v);
+        if (v == null)
+            return null;
+        try {
+            return Integer.valueOf(v);
+        } catch (Exception e) {
+            return Long.valueOf(v).intValue();
+        }
     }
 
     public default Long toLong(String key, Map<String, Object> methodArgs) {

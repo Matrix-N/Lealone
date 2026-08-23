@@ -166,6 +166,8 @@ public class Constants {
      */
     public static final int DEFAULT_P2P_PORT = 9211;
 
+    public static final int DEFAULT_HTTP_PORT = 8080;
+
     public static final String DEFAULT_HOST = "localhost";
 
     /**

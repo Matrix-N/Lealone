@@ -43,6 +43,12 @@ public class DeepSeekCodeAgent extends AppCodeAgent {
             connection.setRequestProperty("Authorization", "Bearer " + apiKey);
             connection.setDoOutput(true);
             JsonArray messages = new JsonArray();
+            if (previousResponseId.get() != null) {
+                JsonObject message = new JsonObject();
+                message.put("role", "assistant");
+                message.put("content", previousResponseId.get());
+                messages.add(message);
+            }
             JsonObject message = new JsonObject();
             message.put("role", "user");
             message.put("content", userPrompt);

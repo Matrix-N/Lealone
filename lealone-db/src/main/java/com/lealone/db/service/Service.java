@@ -243,7 +243,7 @@ public class Service extends SchemaObjectBase {
             String className = toClassName(t.getName());
             String fullName = t.getPackageName() + "." + className;
             prompt.append("以下是").append(className);
-            prompt.append("类的源代码:\n");
+            prompt.append("类的源代码,执行查询或批量更新或批量删除时用静态dao字段操作，不要创建新实例:\n");
             String code = t.getCode();
             if (code == null) {
                 String src = t.getCodePath();

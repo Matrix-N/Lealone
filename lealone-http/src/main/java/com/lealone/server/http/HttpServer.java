@@ -138,6 +138,7 @@ public class HttpServer extends AsyncServer<HttpServerConnection> {
     public synchronized void init(Map<String, String> config) {
         if (inited)
             return;
+        Map<String, String> engineconfig = config;
         config = new CaseInsensitiveMap<>(config);
         config.putAll(this.config);
         String url = config.get("jdbc_url");
@@ -160,6 +161,7 @@ public class HttpServer extends AsyncServer<HttpServerConnection> {
             if (!webRootDir.exists())
                 webRootDir.mkdirs();
             webRoot = webRootDir.getAbsolutePath();
+            engineconfig.put("web_root", webRoot);
         }
         try {
             File baseFile = new File(getBaseDir()).getCanonicalFile();
@@ -263,7 +265,7 @@ public class HttpServer extends AsyncServer<HttpServerConnection> {
 
     @Override
     protected int getDefaultPort() {
-        return HttpServerEngine.DEFAULT_PORT;
+        return com.lealone.db.Constants.DEFAULT_HTTP_PORT;
     }
 
     @Override

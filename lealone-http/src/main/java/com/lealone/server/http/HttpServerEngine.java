@@ -11,7 +11,6 @@ import com.lealone.server.ProtocolServerEngineBase;
 public class HttpServerEngine extends ProtocolServerEngineBase {
 
     public static final String NAME = "HTTP";
-    public static final int DEFAULT_PORT = 8080;
 
     public HttpServerEngine() {
         super(NAME);
