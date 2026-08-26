@@ -37,6 +37,7 @@ import javax.net.ssl.SSLEngine;
 
 import com.lealone.common.logging.Logger;
 import com.lealone.common.logging.LoggerFactory;
+import com.lealone.net.NetEventLoop;
 import com.lealone.server.http.util.ExceptionUtils;
 import com.lealone.server.http.util.collections.SynchronizedStack;
 import com.lealone.server.http.util.net.AbstractEndpoint.Handler.SocketState;
@@ -751,6 +752,9 @@ public class NioSocketWrapper extends SocketWrapper<NioChannel> {
             boolean calledByProcessor) {
         NioChannel sc = null;
         try {
+            // 响应头可能还在缓存中，先写出去
+            ((NetEventLoop) socketWrapper.getScheduler().getNetEventLoop()).write();
+
             unreg(sk, socketWrapper, sk.readyOps());
             SendfileData sd = socketWrapper.getSendfileData();
 

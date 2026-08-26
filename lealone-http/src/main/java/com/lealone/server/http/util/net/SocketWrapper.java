@@ -1355,6 +1355,10 @@ public abstract class SocketWrapper<E> {
 
     private Scheduler scheduler;
 
+    public Scheduler getScheduler() {
+        return scheduler;
+    }
+
     public void setScheduler(Scheduler scheduler) {
         this.scheduler = scheduler;
     }
