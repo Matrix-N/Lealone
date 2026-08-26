@@ -68,7 +68,7 @@ public class DefaultInstanceManager implements InstanceManager {
         Set<String> classNames = new HashSet<>();
         restrictedClasses = Collections.unmodifiableSet(classNames);
         this.context = context;
-        this.injectionMap = injectionMap;
+        this.injectionMap = injectionMap == null ? new HashMap<>() : injectionMap;
     }
 
     @Override
