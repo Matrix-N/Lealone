@@ -486,7 +486,7 @@ class AsyncStateMachine {
         }
         // Ensure in case of error that any non-container threads that have been
         // paused are unpaused.
-        notifyAll();
+        // notifyAll();
         asyncCtxt = null;
         state = AsyncState.DISPATCHED;
         lastAsyncStart = 0;

@@ -19,6 +19,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import com.lealone.db.async.AsyncCallback;
+import com.lealone.db.async.Future;
+import com.lealone.db.scheduler.SchedulerThread;
 import com.lealone.db.value.Value;
 import com.lealone.db.value.ValueNull;
 
@@ -26,16 +29,28 @@ public interface ServiceExecutor {
 
     public static final String NO_RETURN_VALUE = "__NO_RETURN_VALUE__";
 
-    public default Value executeService(String methodName, Value[] methodArgs) {
-        return ValueNull.INSTANCE;
+    public default Object executeService(String methodName, Value[] methodArgs) {
+        return executeServiceAsync(methodName, methodArgs).get();
     }
 
     public default Object executeService(String methodName, Map<String, Object> methodArgs) {
-        return NO_RETURN_VALUE;
+        return executeServiceAsync(methodName, methodArgs).get();
     }
 
     public default Object executeService(String methodName, String json) {
-        return NO_RETURN_VALUE;
+        return executeServiceAsync(methodName, json).get();
+    }
+
+    public default Future<?> executeServiceAsync(String methodName, Value[] methodArgs) {
+        return Future.succeededFuture(ValueNull.INSTANCE);
+    }
+
+    public default Future<?> executeServiceAsync(String methodName, Map<String, Object> methodArgs) {
+        return Future.succeededFuture(NO_RETURN_VALUE);
+    }
+
+    public default Future<?> executeServiceAsync(String methodName, String json) {
+        return Future.succeededFuture(NO_RETURN_VALUE);
     }
 
     public default Integer toInt(String key, Map<String, Object> methodArgs) {
@@ -181,5 +196,9 @@ public interface ServiceExecutor {
 
     public default RuntimeException noMethodException(String methodName) {
         return new RuntimeException("no method: " + methodName);
+    }
+
+    public static <T> AsyncCallback<T> createAsyncCallback() {
+        return AsyncCallback.create(SchedulerThread.isScheduler());
     }
 }

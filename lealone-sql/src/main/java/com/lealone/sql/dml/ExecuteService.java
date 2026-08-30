@@ -11,7 +11,9 @@ import com.lealone.db.result.Result;
 import com.lealone.db.service.Service;
 import com.lealone.db.session.ServerSession;
 import com.lealone.db.table.Column;
+import com.lealone.db.value.DataType;
 import com.lealone.db.value.Value;
+import com.lealone.db.value.ValueNull;
 import com.lealone.sql.expression.Expression;
 import com.lealone.sql.expression.ExpressionColumn;
 
@@ -74,6 +76,7 @@ public class ExecuteService extends ExecuteStatement {
         for (int i = 0; i < size; i++) {
             methodArgs[i] = expressions.get(i).getValue(session);
         }
-        return Service.execute(session, serviceName, methodName, methodArgs);
+        Object obj = Service.execute(session, serviceName, methodName, methodArgs);
+        return DataType.convertToValue(session, obj, ValueNull.UNKNOWN);
     }
 }

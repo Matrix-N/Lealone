@@ -15,6 +15,7 @@ import java.util.UUID;
 import com.lealone.common.exceptions.DbException;
 import com.lealone.common.util.CamelCaseHelper;
 import com.lealone.common.util.CaseInsensitiveMap;
+import com.lealone.db.async.Future;
 import com.lealone.db.table.Column;
 import com.lealone.db.table.Column.ListColumn;
 import com.lealone.db.table.Column.MapColumn;
@@ -71,21 +72,31 @@ public class JavaServiceCodeGenerator extends ServiceCodeGeneratorBase {
         StringBuilder psInitBuff = new StringBuilder();
 
         TreeSet<String> importSet = new TreeSet<>();
-        importSet.add("com.lealone.client.ClientServiceProxy");
         importSet.add("java.sql.*");
+
+        importSet.add("com.lealone.client.ClientServiceProxy");
+
+        // 异步方法需要
+        importSet.add("com.lealone.client.jdbc.JdbcPreparedStatement");
+        importSet.add("com.lealone.db.async.AsyncCallback");
+        importSet.add("com.lealone.db.async.Future");
 
         // 生成方法签名和方法体的代码
         int methodSize = serviceMethods.size();
         ArrayList<StringBuilder> methodSignatureList = new ArrayList<>(methodSize);
         ArrayList<StringBuilder> proxyMethodBodyList = new ArrayList<>(methodSize);
+        ArrayList<StringBuilder> asyncMethodSignatureList = new ArrayList<>(methodSize);
 
         for (int methodIndex = 0; methodIndex < methodSize; methodIndex++) {
             StringBuilder methodSignatureBuff = new StringBuilder();
             StringBuilder proxyMethodBodyBuff = new StringBuilder();
+            StringBuilder asyncMethodSignatureBuff = new StringBuilder();
+            StringBuilder methodParametersBuff = new StringBuilder();
             String psVarName = "ps" + (methodIndex + 1);
             CreateTableData data = serviceMethods.get(methodIndex).getCreateTableData();
 
-            psBuff.append("        private final PreparedStatement ").append(psVarName).append(";\r\n");
+            psBuff.append("        private final JdbcPreparedStatement ").append(psVarName)
+                    .append(";\r\n");
             psInitBuff.append("            ").append(psVarName)
                     .append(" = ClientServiceProxy.prepareStatement(url, \"EXECUTE SERVICE ")
                     .append(serviceName).append(" ").append(data.tableName).append("(");
@@ -102,18 +113,38 @@ public class JavaServiceCodeGenerator extends ServiceCodeGeneratorBase {
             Column returnColumn = data.columns.get(data.columns.size() - 1);
             String returnType = getTypeName(returnColumn, importSet);
             String methodName = toMethodName(data.tableName);
-            methodSignatureBuff.append(returnType).append(" ").append(methodName).append("(");
+            methodSignatureBuff.append("    default ").append(returnType).append(" ").append(methodName)
+                    .append("(");
+            boolean returnVoid = returnType.equals("void");
+            String asyncReturnType;
+            if (returnVoid)
+                asyncReturnType = "Future<Void>";
+            else
+                asyncReturnType = "Future<" + returnType + ">";
+            asyncMethodSignatureBuff.append(asyncReturnType).append(" ").append(methodName)
+                    .append("Async(");
+
+            proxyMethodBodyBuff.append("            AsyncCallback<");
+            if (returnVoid)
+                proxyMethodBodyBuff.append("Void");
+            else
+                proxyMethodBodyBuff.append(returnType);
+            proxyMethodBodyBuff.append("> ac = ClientServiceProxy.createAsyncCallback();\r\n");
 
             proxyMethodBodyBuff.append("            try {\r\n");
 
             for (int i = 0, size = data.columns.size() - 1; i < size; i++) {
                 if (i != 0) {
                     methodSignatureBuff.append(", ");
+                    asyncMethodSignatureBuff.append(", ");
+                    methodParametersBuff.append(", ");
                 }
                 Column c = data.columns.get(i);
                 String cType = getTypeName(c, importSet);
                 String cName = toFieldName(c.getName());
                 methodSignatureBuff.append(cType).append(" ").append(cName);
+                asyncMethodSignatureBuff.append(cType).append(" ").append(cName);
+                methodParametersBuff.append(cName);
                 proxyMethodBodyBuff.append("                ").append(psVarName).append(".");
                 if (c.getTable() != null) {
                     proxyMethodBodyBuff.append("setObject(").append(i + 1).append(", ").append(cName)
@@ -132,30 +163,58 @@ public class JavaServiceCodeGenerator extends ServiceCodeGeneratorBase {
                     proxyMethodBodyBuff.append(");\r\n");
                 }
             }
-            methodSignatureBuff.append(")");
+            methodSignatureBuff.append(") {\r\n");
+            methodSignatureBuff.append("        ");
+            if (!returnVoid)
+                methodSignatureBuff.append("return ");
+            methodSignatureBuff.append(methodName).append("Async(").append(methodParametersBuff)
+                    .append(").get();\r\n");
+            methodSignatureBuff.append("    }\r\n");
             methodSignatureList.add(methodSignatureBuff);
+            asyncMethodSignatureBuff.append(")");
+            asyncMethodSignatureList.add(asyncMethodSignatureBuff);
 
-            if (returnType.equals("void")) {
+            if (returnVoid) {
                 proxyMethodBodyBuff.append("                ").append(psVarName)
-                        .append(".executeUpdate();\r\n");
+                        .append(".executeUpdateAsync().onComplete(ar -> {\r\n");
+                proxyMethodBodyBuff.append("                    if (ar.isFailed()) {\r\n");
+                proxyMethodBodyBuff.append("                        ClientServiceProxy.failed(\"")
+                        .append(serviceName).append('.').append(data.tableName)
+                        .append("\", ar.getCause(), ac);\r\n");
+                proxyMethodBodyBuff.append("                        return;\r\n");
+                proxyMethodBodyBuff.append("                    }\r\n");
+                proxyMethodBodyBuff.append("                    ac.setAsyncResult((Void) null);\r\n");
+                proxyMethodBodyBuff.append("                });\r\n");
             } else {
-                proxyMethodBodyBuff.append("                ResultSet rs = ").append(psVarName)
-                        .append(".executeQuery();\r\n");
-                proxyMethodBodyBuff.append("                rs.next();\r\n");
+                proxyMethodBodyBuff.append("                ").append(psVarName)
+                        .append(".executeQueryAsync().onComplete(ar -> {\r\n");
+                proxyMethodBodyBuff.append("                    if (ar.isFailed()) {\r\n");
+                proxyMethodBodyBuff.append("                        ClientServiceProxy.failed(\"")
+                        .append(serviceName).append('.').append(data.tableName)
+                        .append("\", ar.getCause(), ac);\r\n");
+                proxyMethodBodyBuff.append("                        return;\r\n");
+                proxyMethodBodyBuff.append("                    }\r\n");
+
+                proxyMethodBodyBuff.append("                    try {\r\n");
+                proxyMethodBodyBuff.append("                        ResultSet rs = ar.getResult();\r\n");
+                proxyMethodBodyBuff.append("                        rs.next();\r\n");
 
                 if (returnColumn.isCollectionType()) {
-                    proxyMethodBodyBuff.append("                @SuppressWarnings(\"unchecked\")\r\n");
-                    proxyMethodBodyBuff.append("                ").append(returnType).append(" ret = (")
-                            .append(returnType).append(")rs.getObject(1);\r\n");
-                    proxyMethodBodyBuff.append("                rs.close();\r\n");
-                    proxyMethodBodyBuff.append("                return ret;\r\n");
+                    proxyMethodBodyBuff
+                            .append("                        @SuppressWarnings(\"unchecked\")\r\n");
+                    proxyMethodBodyBuff.append("                        ").append(returnType)
+                            .append(" ret = (").append(returnType).append(")rs.getObject(1);\r\n");
+                    proxyMethodBodyBuff.append("                        rs.close();\r\n");
+                    proxyMethodBodyBuff.append("                        ac.setAsyncResult(ret);\r\n");
                 } else if (returnColumn.getTable() != null) {
-                    proxyMethodBodyBuff.append("                Object ret = rs.getObject(1);\r\n");
-                    proxyMethodBodyBuff.append("                rs.close();\r\n");
-                    proxyMethodBodyBuff.append("                return ").append(returnType)
-                            .append(".decode(ret);\r\n");
+                    proxyMethodBodyBuff
+                            .append("                        Object ret = rs.getObject(1);\r\n");
+                    proxyMethodBodyBuff.append("                        rs.close();\r\n");
+                    proxyMethodBodyBuff.append("                        ac.setAsyncResult(")
+                            .append(returnType).append(".decode(ret));\r\n");
                 } else {
-                    proxyMethodBodyBuff.append("                ").append(returnType).append(" ret = ");
+                    proxyMethodBodyBuff.append("                        ").append(returnType)
+                            .append(" ret = ");
                     if (returnType.toUpperCase().equals("UUID")) {
                         importSet.add(UUID.class.getName());
                         importSet.add(ValueUuid.class.getName());
@@ -166,15 +225,23 @@ public class JavaServiceCodeGenerator extends ServiceCodeGeneratorBase {
                         proxyMethodBodyBuff.append("rs.")
                                 .append(getResultSetReturnMethodName(returnType)).append("(1);\r\n");
                     }
-                    proxyMethodBodyBuff.append("                rs.close();\r\n");
-                    proxyMethodBodyBuff.append("                return ret;\r\n");
+                    proxyMethodBodyBuff.append("                        rs.close();\r\n");
+                    proxyMethodBodyBuff.append("                        ac.setAsyncResult(ret);\r\n");
                 }
+
+                proxyMethodBodyBuff.append("                    } catch (Throwable e) {\r\n");
+                proxyMethodBodyBuff.append("                        ClientServiceProxy.failed(\"")
+                        .append(serviceName).append('.').append(data.tableName)
+                        .append("\", e, ac);\r\n");
+                proxyMethodBodyBuff.append("                    }\r\n");
+                proxyMethodBodyBuff.append("                });\r\n");
             }
             proxyMethodBodyBuff.append("            } catch (Throwable e) {\r\n");
-            proxyMethodBodyBuff.append("                throw ClientServiceProxy.failed(\"")
-                    .append(serviceName).append('.').append(data.tableName).append("\", e);\r\n");
+            proxyMethodBodyBuff.append("                ClientServiceProxy.failed(\"")
+                    .append(serviceName).append('.').append(data.tableName).append("\", e, ac);\r\n");
             proxyMethodBodyBuff.append("            }\r\n");
 
+            proxyMethodBodyBuff.append("            return ac;\r\n");
             proxyMethodBodyList.add(proxyMethodBodyBuff);
         }
 
@@ -201,6 +268,13 @@ public class JavaServiceCodeGenerator extends ServiceCodeGeneratorBase {
 
         // 生成服务接口方法
         for (StringBuilder m : methodSignatureList) {
+            // buff.append(" default ").append(m).append(";\r\n");
+            buff.append(m);
+            buff.append("\r\n");
+        }
+
+        // 生成异步服务接口方法
+        for (StringBuilder m : asyncMethodSignatureList) {
             buff.append("    ").append(m).append(";\r\n");
             buff.append("\r\n");
         }
@@ -237,7 +311,7 @@ public class JavaServiceCodeGenerator extends ServiceCodeGeneratorBase {
         for (int i = 0; i < methodSize; i++) {
             buff.append("\r\n");
             buff.append("        @Override\r\n");
-            buff.append("        public ").append(methodSignatureList.get(i)).append(" {\r\n");
+            buff.append("        public ").append(asyncMethodSignatureList.get(i)).append(" {\r\n");
             buff.append(proxyMethodBodyList.get(i));
             buff.append("        }\r\n");
         }
@@ -267,11 +341,11 @@ public class JavaServiceCodeGenerator extends ServiceCodeGeneratorBase {
             return;
         }
         TreeSet<String> importSet = new TreeSet<>();
+        importSet.add("com.lealone.db.async.Future");
 
         // 生成方法签名和方法体的代码
         int methodSize = serviceMethods.size();
         ArrayList<StringBuilder> methodSignatureList = new ArrayList<>(methodSize);
-        ArrayList<String> methodReturnTypeList = new ArrayList<>(methodSize);
 
         for (int methodIndex = 0; methodIndex < methodSize; methodIndex++) {
             StringBuilder methodSignatureBuff = new StringBuilder();
@@ -280,8 +354,14 @@ public class JavaServiceCodeGenerator extends ServiceCodeGeneratorBase {
             Column returnColumn = data.columns.get(data.columns.size() - 1);
             String returnType = getTypeName(returnColumn, importSet);
             String methodName = toMethodName(data.tableName);
-            methodSignatureBuff.append(returnType).append(" ").append(methodName).append("(");
-            methodReturnTypeList.add(returnType);
+
+            boolean returnVoid = returnType.equals("void");
+            String asyncReturnType;
+            if (returnVoid)
+                asyncReturnType = "Future<Void>";
+            else
+                asyncReturnType = "Future<" + returnType + ">";
+            methodSignatureBuff.append(asyncReturnType).append(" ").append(methodName).append("Async(");
 
             for (int i = 0, size = data.columns.size() - 1; i < size; i++) {
                 if (i != 0) {
@@ -324,8 +404,7 @@ public class JavaServiceCodeGenerator extends ServiceCodeGeneratorBase {
             if (genCode)
                 buff.append("    @Override\r\n");
             buff.append("    public ").append(methodSignatureList.get(i)).append(" {\r\n");
-            if (!methodReturnTypeList.get(i).equals("void"))
-                buff.append("        return null;\r\n");
+            buff.append("        return null;\r\n");
             buff.append("    }\r\n");
         }
         buff.append("}\r\n");
@@ -351,11 +430,7 @@ public class JavaServiceCodeGenerator extends ServiceCodeGeneratorBase {
             for (CreateTable m : serviceMethods) {
                 index++;
                 // switch语句不同case代码块的本地变量名不能相同
-                String resultVarName = "result" + index;
                 CreateTableData data = m.getCreateTableData();
-
-                Column returnColumn = data.columns.get(data.columns.size() - 1);
-                String returnType = getTypeName(returnColumn, importSet);
                 StringBuilder argsBuff = new StringBuilder();
                 String methodName = toMethodName(data.tableName);
                 buff.append("        case \"").append(data.tableName).append("\":\r\n");
@@ -378,24 +453,11 @@ public class JavaServiceCodeGenerator extends ServiceCodeGeneratorBase {
                         argsBuff.append(cName);
                     }
                 }
-                boolean isVoid = returnType.equals("void");
-                buff.append("            ");
-                if (!isVoid) {
-                    if (createResultVar())
-                        buff.append(returnType).append(" ").append(resultVarName).append(" = ");
-                    else
-                        buff.append("return ");
-                }
-                buff.append("si.").append(methodName).append("(").append(argsBuff).append(");\r\n");
-                if (!isVoid) {
-                    if (createResultVar())
-                        genReturnCode(buff, importSet, returnColumn, returnType, resultVarName);
-                } else {
-                    buff.append("            return ").append(getReturnType()).append(";\r\n");
-                }
+                buff.append("            return si.").append(methodName).append("Async(")
+                        .append(argsBuff).append(");\r\n");
             }
             buff.append("        default:\r\n");
-            buff.append("            throw noMethodException(methodName);\r\n");
+            buff.append("            return Future.failedFuture(noMethodException(methodName));\r\n");
             buff.append("        }\r\n");
             buff.append("    }\r\n");
             return buff;
@@ -403,19 +465,6 @@ public class JavaServiceCodeGenerator extends ServiceCodeGeneratorBase {
 
         protected abstract void genVarInitCode(StringBuilder buff, TreeSet<String> importSet, Column c,
                 String cType, int cIndex);
-
-        protected void genReturnCode(StringBuilder buff, TreeSet<String> importSet, Column returnColumn,
-                String returnType, String resultVarName) {
-            buff.append("            return ").append(resultVarName).append(";\r\n");
-        }
-
-        protected String getReturnType() {
-            return "NO_RETURN_VALUE";
-        }
-
-        protected boolean createResultVar() {
-            return false;
-        }
     }
 
     private class ValueServiceExecutorMethodGenerator extends ServiceExecutorMethodGenerator {
@@ -431,49 +480,6 @@ public class JavaServiceCodeGenerator extends ServiceCodeGeneratorBase {
                 buff.append("methodArgs[").append(cIndex).append("].").append(getValueMethodName(cType))
                         .append("();\r\n");
             }
-        }
-
-        @Override
-        protected void genReturnCode(StringBuilder buff, TreeSet<String> importSet, Column returnColumn,
-                String returnType, String resultVarName) {
-            buff.append("            if (").append(resultVarName).append(" == null)\r\n");
-            buff.append("                return ValueNull.INSTANCE;\r\n");
-            if (returnColumn.getTable() != null) {
-                buff.append("            return ValueMap.get(").append(resultVarName)
-                        .append(".toMap());\r\n");
-            } else {
-                Column c = returnColumn;
-                if (c instanceof ListColumn) {
-                    ListColumn lc = (ListColumn) c;
-                    buff.append("            return ValueList.get(")
-                            .append(getTypeName(lc.element, importSet)).append(".class, ")
-                            .append(resultVarName).append(");\r\n");
-                } else if (c instanceof SetColumn) {
-                    SetColumn sc = (SetColumn) c;
-                    buff.append("            return ValueSet.get(")
-                            .append(getTypeName(sc.element, importSet)).append(".class, ")
-                            .append(resultVarName).append(");\r\n");
-                } else if (c instanceof MapColumn) {
-                    MapColumn mc = (MapColumn) c;
-                    buff.append("            return ValueMap.get(")
-                            .append(getTypeName(mc.key, importSet)).append(".class, ")
-                            .append(getTypeName(mc.value, importSet)).append(".class, ")
-                            .append(resultVarName).append(");\r\n");
-                } else {
-                    buff.append("            return ").append(getReturnMethodName(returnType))
-                            .append("(").append(resultVarName).append(")").append(";\r\n");
-                }
-            }
-        }
-
-        @Override
-        protected String getReturnType() {
-            return "ValueNull.INSTANCE";
-        }
-
-        @Override
-        protected boolean createResultVar() {
-            return true;
         }
     }
 
@@ -513,11 +519,12 @@ public class JavaServiceCodeGenerator extends ServiceCodeGeneratorBase {
     public StringBuilder genServiceExecutorCode(boolean writeFile) {
         TreeSet<String> importSet = new TreeSet<>();
         importSet.add(ServiceExecutor.class.getName());
+        importSet.add(Future.class.getName());
 
         // 生成public Value executeService(String methodName, Value[] methodArgs)方法
         importSet.add("com.lealone.db.value.*");
         StringBuilder buffValueMethod = new ValueServiceExecutorMethodGenerator().genCode(importSet,
-                "Value executeService(String methodName, Value[] methodArgs)");
+                "Future<?> executeServiceAsync(String methodName, Value[] methodArgs)");
 
         boolean generateMapExecutorMethod = Boolean
                 .parseBoolean(getParameterValue(ServiceSetting.GENERATE_MAP_EXECUTOR_METHOD, "true"));
@@ -530,7 +537,7 @@ public class JavaServiceCodeGenerator extends ServiceCodeGeneratorBase {
         if (generateMapExecutorMethod) {
             importSet.add(Map.class.getName());
             buffMapMethod = new MapServiceExecutorMethodGenerator().genCode(importSet,
-                    "Object executeService(String methodName, Map<String, Object> methodArgs)");
+                    "Future<?> executeServiceAsync(String methodName, Map<String, Object> methodArgs)");
         }
 
         // 生成public String executeService(String methodName, String json)方法
@@ -545,7 +552,7 @@ public class JavaServiceCodeGenerator extends ServiceCodeGeneratorBase {
                 }
             }
             buffJsonMethod = new JsonServiceExecutorMethodGenerator().genCode(importSet,
-                    "Object executeService(String methodName, String json)", varInit);
+                    "Future<?> executeServiceAsync(String methodName, String json)", varInit);
         }
 
         String executorPackageName = getExecutorPackageName();
@@ -615,55 +622,55 @@ public class JavaServiceCodeGenerator extends ServiceCodeGeneratorBase {
         return ModelCodeGenerator.getTypeName(c, importSet);
     }
 
-    private static String getReturnMethodName(String type) {
-        type = type.toUpperCase();
-        switch (type) {
-        case "BOOLEAN":
-            return "ValueBoolean.get";
-        case "BYTE":
-            return "ValueByte.get";
-        case "SHORT":
-            return "ValueShort.get";
-        case "INTEGER":
-            return "ValueInt.get";
-        case "LONG":
-            return "ValueLong.get";
-        case "BIGDECIMAL":
-            return "ValueDecimal.get";
-        case "TIME":
-            return "ValueTime.get";
-        case "DATE":
-            return "ValueDate.get";
-        case "TIMESTAMP":
-            return "ValueTimestamp.get";
-        case "BYTE[]":
-            return "ValueBytes.get";
-        case "UUID":
-            return "ValueUuid.get";
-        case "STRING":
-        case "STRING_IGNORECASE":
-        case "STRING_FIXED":
-            return "ValueString.get";
-        case "DOUBLE":
-            return "ValueDouble.get";
-        case "FLOAT":
-            return "ValueFloat.get";
-        case "NULL":
-            return "ValueNull.INSTANCE";
-        case "UNKNOWN": // anything
-        case "OBJECT":
-            return "ValueShort.get";
-        case "BLOB":
-            return "ValueShort.get";
-        case "CLOB":
-            return "ValueShort.get";
-        case "ARRAY":
-            return "ValueArray.get";
-        case "RESULT_SET":
-            return "ValueResultSet.get";
-        }
-        return "ValueString.get";
-    }
+    // private static String getReturnMethodName(String type) {
+    // type = type.toUpperCase();
+    // switch (type) {
+    // case "BOOLEAN":
+    // return "ValueBoolean.get";
+    // case "BYTE":
+    // return "ValueByte.get";
+    // case "SHORT":
+    // return "ValueShort.get";
+    // case "INTEGER":
+    // return "ValueInt.get";
+    // case "LONG":
+    // return "ValueLong.get";
+    // case "BIGDECIMAL":
+    // return "ValueDecimal.get";
+    // case "TIME":
+    // return "ValueTime.get";
+    // case "DATE":
+    // return "ValueDate.get";
+    // case "TIMESTAMP":
+    // return "ValueTimestamp.get";
+    // case "BYTE[]":
+    // return "ValueBytes.get";
+    // case "UUID":
+    // return "ValueUuid.get";
+    // case "STRING":
+    // case "STRING_IGNORECASE":
+    // case "STRING_FIXED":
+    // return "ValueString.get";
+    // case "DOUBLE":
+    // return "ValueDouble.get";
+    // case "FLOAT":
+    // return "ValueFloat.get";
+    // case "NULL":
+    // return "ValueNull.INSTANCE";
+    // case "UNKNOWN": // anything
+    // case "OBJECT":
+    // return "ValueShort.get";
+    // case "BLOB":
+    // return "ValueShort.get";
+    // case "CLOB":
+    // return "ValueShort.get";
+    // case "ARRAY":
+    // return "ValueArray.get";
+    // case "RESULT_SET":
+    // return "ValueResultSet.get";
+    // }
+    // return "ValueString.get";
+    // }
 
     private static String m(String str, int i) {
         return str + "(ja.getValue(" + i + ").toString())";

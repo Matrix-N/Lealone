@@ -6,20 +6,22 @@
 package com.lealone.client;
 
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.lealone.client.jdbc.JdbcPreparedStatement;
 import com.lealone.db.ConnectionInfo;
 import com.lealone.db.ConnectionSetting;
 import com.lealone.db.Constants;
+import com.lealone.db.async.AsyncCallback;
+import com.lealone.db.scheduler.SchedulerThread;
 
 public class ClientServiceProxy {
 
     private static ConcurrentHashMap<String, Connection> connMap = new ConcurrentHashMap<>(1);
 
-    public static PreparedStatement prepareStatement(String url, String sql) {
+    public static JdbcPreparedStatement prepareStatement(String url, String sql) {
         try {
             Connection conn = connMap.get(url);
             if (conn == null) {
@@ -33,7 +35,7 @@ public class ClientServiceProxy {
                     }
                 }
             }
-            return conn.prepareStatement(sql);
+            return (JdbcPreparedStatement) conn.prepareStatement(sql);
         } catch (SQLException e) {
             throw new RuntimeException("Failed to prepare statement: " + sql, e);
         }
@@ -43,11 +45,19 @@ public class ClientServiceProxy {
         return new RuntimeException("Failed to execute service: " + serviceName, cause);
     }
 
+    public static void failed(String serviceName, Throwable cause, AsyncCallback<?> ac) {
+        ac.setAsyncResult(new RuntimeException("Failed to execute service: " + serviceName, cause));
+    }
+
     public static boolean isEmbedded(String url) {
         return url == null || new ConnectionInfo(url).isEmbedded();
     }
 
     public static String getUrl() {
         return System.getProperty(Constants.JDBC_URL_KEY);
+    }
+
+    public static <T> AsyncCallback<T> createAsyncCallback() {
+        return AsyncCallback.create(SchedulerThread.isScheduler());
     }
 }

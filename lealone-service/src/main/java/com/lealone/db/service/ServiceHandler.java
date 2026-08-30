@@ -16,6 +16,9 @@ import com.lealone.common.util.MapUtils;
 import com.lealone.common.util.StringUtils;
 import com.lealone.db.ConnectionInfo;
 import com.lealone.db.Constants;
+import com.lealone.db.async.AsyncCallback;
+import com.lealone.db.async.Future;
+import com.lealone.db.scheduler.SchedulerThread;
 import com.lealone.db.session.ServerSession;
 import com.lealone.orm.Model;
 import com.lealone.orm.json.Json;
@@ -50,9 +53,13 @@ public class ServiceHandler {
 
     public String executeService(String serviceName, String methodName, Map<String, Object> methodArgs,
             boolean disableDynamicCompile) {
-        if (methodArgs.containsKey("methodArgs")) {
-            return executeService(serviceName, methodName, methodArgs.get("methodArgs").toString());
-        }
+        Object r = executeServiceAsync(serviceName, methodName, methodArgs, disableDynamicCompile).get();
+        return r == null ? "null" : r.toString();
+    }
+
+    public Future<?> executeServiceAsync(String serviceName, String methodName,
+            Map<String, Object> methodArgs, boolean disableDynamicCompile) {
+        AsyncCallback<Object> ac = AsyncCallback.create(SchedulerThread.isScheduler());
         String dbName = defaultDatabase;
         String schemaName = defaultSchema;
         String[] serviceNameArray = StringUtils.arraySplit(serviceName, '.');
@@ -64,34 +71,36 @@ public class ServiceHandler {
             schemaName = serviceNameArray[1];
             serviceName = serviceNameArray[2];
         }
-
-        Object result = null;
         try {
             if (logger.isDebugEnabled())
                 logger.debug("Execute service: {}.{}", serviceName, methodName);
             if (serviceName.equalsIgnoreCase("LEALONE_SYSTEM_SERVICE")) {
-                result = SystemService.execute(dbName, schemaName, methodName, methodArgs);
+                String result = SystemService.execute(dbName, schemaName, methodName, methodArgs);
+                ac.setAsyncResult(result);
             } else {
-                result = Service.execute(session, dbName, schemaName, serviceName, methodName,
-                        methodArgs, disableDynamicCompile);
+                Service.executeAsync(session, dbName, schemaName, serviceName, methodName, methodArgs,
+                        disableDynamicCompile).onComplete(ar -> {
+                            Object r = ar.getResult();
+
+                            // 如果为null就返回"null"字符串
+                            if (r == null)
+                                r = "null";
+
+                            if (r instanceof List || r instanceof Set || r instanceof Map
+                                    || r instanceof Model) {
+                                r = Json.encode(r);
+                            }
+                            ac.setAsyncResult(r);
+                        });
             }
         } catch (Exception e) {
-            result = "Failed to execute service: " + serviceName + "." + methodName + ", cause: "
+            String result = "Failed to execute service: " + serviceName + "." + methodName + ", cause: "
                     + e.getMessage();
             logger.error(result, e);
             // 这种异常还是得抛给调用者
-            if (e instanceof RuntimeException)
-                throw e;
+            ac.setAsyncResult(new RuntimeException(result, e));
         }
-        // 如果为null就返回"null"字符串
-        if (result == null)
-            result = "null";
-
-        if (result instanceof List || result instanceof Set || result instanceof Map
-                || result instanceof Model) {
-            return Json.encode(result);
-        }
-        return result.toString();
+        return ac;
     }
 
     public String executeService(String serviceName, String methodName, String methodArgs) {

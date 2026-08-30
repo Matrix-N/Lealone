@@ -12,7 +12,7 @@ set lealone (
     scheduler: (
         scheduler_count: 8,
         prefer_batch_write: false,
-        max_packet_count_per_loop: 100, -- 每次循环最多读取多少个数据包，默认20
+        max_packet_count_per_loop: 1000, -- 每次循环最多读取多少个数据包，默认20
     ),
     storage_engine: (
         name: 'AOSE',

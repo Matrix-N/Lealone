@@ -67,7 +67,7 @@ import com.lealone.transaction.Transaction;
  * @param <T> Model 子类
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })
-public abstract class Model<T extends Model<T>> {
+public abstract class Model<T extends Model<T>> implements com.lealone.db.value.ValueMap.ToMap {
 
     public static final short REGULAR_MODEL = 0;
     public static final short ROOT_DAO = 1;
@@ -709,6 +709,7 @@ public abstract class Model<T extends Model<T>> {
         return jsonFormat;
     }
 
+    @Override
     public Map<String, Object> toMap() {
         return toMap(null);
     }
@@ -1094,7 +1095,7 @@ public abstract class Model<T extends Model<T>> {
         insert.prepare();
         logSql(insert);
 
-        final long tid2 = tid;
+        final Long tid2 = tid;
         AsyncCallback<Long> ac = session.createCallback();
         insert.executeUpdate().onComplete(ar -> {
             if (ar.isFailed()) {

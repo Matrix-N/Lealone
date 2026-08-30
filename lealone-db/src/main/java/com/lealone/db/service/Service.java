@@ -33,6 +33,7 @@ import com.lealone.db.Database;
 import com.lealone.db.DbObjectType;
 import com.lealone.db.LealoneDatabase;
 import com.lealone.db.SysProperties;
+import com.lealone.db.async.Future;
 import com.lealone.db.auth.Right;
 import com.lealone.db.constraint.ConstraintReferential;
 import com.lealone.db.schema.Schema;
@@ -508,16 +509,28 @@ public class Service extends SchemaObjectBase {
     }
 
     // 通过jdbc调用
-    public static Value execute(ServerSession session, String serviceName, String methodName,
+    public static Object execute(ServerSession session, String serviceName, String methodName,
+            Value[] methodArgs) {
+        return executeAsync(session, serviceName, methodName, methodArgs).get();
+    }
+
+    public static Future<?> executeAsync(ServerSession session, String serviceName, String methodName,
             Value[] methodArgs) {
         Service service = getService(session, session.getDatabase(), session.getCurrentSchemaName(),
                 serviceName);
         checkRight(session, service);
-        return service.getExecutor().executeService(methodName, methodArgs);
+        return service.getExecutor().executeServiceAsync(methodName, methodArgs);
     }
 
     // 通过http调用
     public static Object execute(ServerSession session, String dbName, String schemaName,
+            String serviceName, String methodName, Map<String, Object> methodArgs,
+            boolean disableDynamicCompile) {
+        return executeAsync(session, dbName, schemaName, serviceName, methodName, methodArgs,
+                disableDynamicCompile).get();
+    }
+
+    public static Future<?> executeAsync(ServerSession session, String dbName, String schemaName,
             String serviceName, String methodName, Map<String, Object> methodArgs,
             boolean disableDynamicCompile) {
         Database db = LealoneDatabase.getInstance().getDatabase(dbName);
@@ -527,11 +540,15 @@ public class Service extends SchemaObjectBase {
         }
         Service service = getService(session, db, schemaName, serviceName);
         checkRight(session, service);
-        return service.getExecutor(disableDynamicCompile).executeService(methodName, methodArgs);
+        return service.getExecutor(disableDynamicCompile).executeServiceAsync(methodName, methodArgs);
     }
 
     // 通过json调用
     public static Object execute(ServerSession session, String serviceName, String json) {
+        return executeAsync(session, serviceName, json).get();
+    }
+
+    public static Future<?> executeAsync(ServerSession session, String serviceName, String json) {
         String[] a = StringUtils.arraySplit(serviceName, '.');
         if (a.length == 4) {
             Database db = LealoneDatabase.getInstance().getDatabase(a[0]);
@@ -541,7 +558,7 @@ public class Service extends SchemaObjectBase {
             }
             Service service = getService(session, db, a[1], a[2]);
             checkRight(session, service);
-            return service.getExecutor().executeService(methodName, json);
+            return service.getExecutor().executeServiceAsync(methodName, json);
         } else {
             throw new RuntimeException("service " + serviceName + " not found");
         }

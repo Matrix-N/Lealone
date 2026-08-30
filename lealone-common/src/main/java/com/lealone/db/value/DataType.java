@@ -907,6 +907,8 @@ public class DataType {
             return ValueSet.get((Set<?>) x);
         } else if (x instanceof Map) {
             return ValueMap.get((Map<?, ?>) x);
+        } else if (x instanceof ValueMap.ToMap) {
+            return ValueMap.get(((ValueMap.ToMap) x).toMap());
         } else {
             return ValueJavaObject.getNoCopy(x, null);
         }

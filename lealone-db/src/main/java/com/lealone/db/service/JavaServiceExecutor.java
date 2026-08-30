@@ -14,11 +14,11 @@ import java.util.Map;
 
 import com.lealone.common.exceptions.DbException;
 import com.lealone.common.util.CamelCaseHelper;
+import com.lealone.db.async.Future;
 import com.lealone.db.table.Column;
 import com.lealone.db.value.DataType;
 import com.lealone.db.value.Value;
 import com.lealone.db.value.ValueNull;
-import com.lealone.db.value.ValueString;
 
 public class JavaServiceExecutor extends ServiceExecutorBase {
 
@@ -81,6 +81,11 @@ public class JavaServiceExecutor extends ServiceExecutorBase {
                             objectMethodMap.put(serviceMethodName, m);
                             break;
                         }
+                        if (m.getName().equalsIgnoreCase(serviceMethodName + "_ASYNC")
+                                || m.getName().equalsIgnoreCase(objectMethodName + "Async")) {
+                            objectMethodMap.put(serviceMethodName, m);
+                            break;
+                        }
                     }
                 } catch (Exception e) {
                     throw new RuntimeException("Method not found: " + objectMethodName, e);
@@ -90,45 +95,39 @@ public class JavaServiceExecutor extends ServiceExecutorBase {
     }
 
     @Override
-    public Value executeService(String methodName, Value[] methodArgs) {
+    public Future<?> executeServiceAsync(String methodName, Value[] methodArgs) {
         init();
         Method method = objectMethodMap.get(methodName);
         Object[] args = getServiceMethodArgs(methodName, methodArgs);
         try {
             Object ret = method.invoke(implementClassObject, args);
             if (ret == null)
-                return ValueNull.INSTANCE;
-            return ValueString.get(ret.toString());
+                return Future.succeededFuture(ValueNull.INSTANCE);
+            return (Future<?>) ret;
         } catch (Exception e) {
             throw DbException.convert(e);
         }
     }
 
     @Override
-    public String executeService(String methodName, Map<String, Object> methodArgs) {
+    public Future<?> executeServiceAsync(String methodName, Map<String, Object> methodArgs) {
         init();
         Method method = objectMethodMap.get(methodName);
         Object[] args = getServiceMethodArgs(methodName, methodArgs);
         try {
-            Object ret = method.invoke(implementClassObject, args);
-            if (ret == null)
-                return null;
-            return ret.toString();
+            return (Future<?>) method.invoke(implementClassObject, args);
         } catch (Exception e) {
             throw DbException.convert(e);
         }
     }
 
     @Override
-    public String executeService(String methodName, String json) {
+    public Future<?> executeServiceAsync(String methodName, String json) {
         init();
         Method method = objectMethodMap.get(methodName);
         Object[] args = getServiceMethodArgs(methodName, json);
         try {
-            Object ret = method.invoke(implementClassObject, args);
-            if (ret == null)
-                return null;
-            return ret.toString();
+            return (Future<?>) method.invoke(implementClassObject, args);
         } catch (Exception e) {
             throw DbException.convert(e);
         }

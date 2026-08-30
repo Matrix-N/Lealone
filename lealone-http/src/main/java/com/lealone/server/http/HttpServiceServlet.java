@@ -57,8 +57,16 @@ public class HttpServiceServlet extends HttpServlet {
         String serviceName = a[1];
         String methodName = a[2];
         CaseInsensitiveMap<Object> methodArgs = getMethodArgs(request);
-        String result = serviceHandler.executeService(serviceName, methodName, methodArgs);
-        sendHttpServiceResponse(response, serviceName, methodName, result);
+        if (!request.isAsyncStarted())
+            request.startAsync();
+        serviceHandler.executeServiceAsync(serviceName, methodName, methodArgs, false).onComplete(ar -> {
+            String result = ar.getResult().toString();
+            try {
+                sendHttpServiceResponse(response, serviceName, methodName, result);
+            } catch (IOException e) {
+            }
+            request.getAsyncContext().complete();
+        });
     }
 
     protected static CaseInsensitiveMap<Object> getMethodArgs(HttpServletRequest request) {
