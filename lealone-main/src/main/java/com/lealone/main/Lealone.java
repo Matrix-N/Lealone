@@ -27,7 +27,6 @@ import com.lealone.common.util.IOUtils;
 import com.lealone.common.util.ShutdownHookUtils;
 import com.lealone.common.util.StatementBuilder;
 import com.lealone.common.util.Utils;
-import com.lealone.db.ConnectionInfo;
 import com.lealone.db.Constants;
 import com.lealone.db.Database;
 import com.lealone.db.LealoneDatabase;
@@ -276,12 +275,7 @@ public class Lealone {
 
                     Database db = null;
                     if (dbName != null) {
-                        db = LealoneDatabase.getInstance().findDatabase(dbName);
-                        if (db == null) {
-                            db = LealoneDatabase.getInstance().createEmbeddedDatabase(dbName,
-                                    new ConnectionInfo(Constants.getEmbedUrl(dbName)));
-                        }
-                        db.init();
+                        db = LealoneDatabase.getOrCreateEmbeddedDatabase(dbName);
                     }
                     if (sqlScripts != null || initSql != null) {
                         try (ServerSession session = db.createSession(db.getSystemUser())) {

@@ -45,6 +45,7 @@ set lealone (
         port: 8080,
         allow_others: true,
         ssl: false,
+        -- default_database: 'test',
         session_timeout: -1
     )
 )

@@ -955,10 +955,10 @@ class Stream extends AbstractNonZeroStream implements HeaderEmitter {
             if (buffer == null)
                 buffer = ZERO_LENGTH_BYTEBUFFER;
             int left = buffer.remaining();
-            if (left < 9000) {
-                closed = true;
-                writeInProgress = false;
-            }
+            // if (left < 9000) {
+            // closed = true;
+            // writeInProgress = false;
+            // }
             if (left == 0) {
                 if (closed && !endOfStreamSent) {
                     // Handling this special case here is simpler than trying

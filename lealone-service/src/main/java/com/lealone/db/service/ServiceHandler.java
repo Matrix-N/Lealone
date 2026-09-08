@@ -14,8 +14,7 @@ import com.lealone.common.logging.LoggerFactory;
 import com.lealone.common.util.CamelCaseHelper;
 import com.lealone.common.util.MapUtils;
 import com.lealone.common.util.StringUtils;
-import com.lealone.db.ConnectionInfo;
-import com.lealone.db.Constants;
+import com.lealone.db.LealoneDatabase;
 import com.lealone.db.async.AsyncCallback;
 import com.lealone.db.async.Future;
 import com.lealone.db.scheduler.SchedulerThread;
@@ -30,21 +29,14 @@ public class ServiceHandler {
 
     protected final String defaultDatabase;
     protected final String defaultSchema;
-    protected final ServerSession session;
 
     public ServiceHandler(Map<String, String> config) {
         defaultDatabase = MapUtils.getString(config, "default_database", "lealone");
         defaultSchema = MapUtils.getString(config, "default_schema", "public");
-
-        String url = config.get("jdbc_url");
-        if (url == null)
-            url = Constants.URL_PREFIX + Constants.URL_EMBED + defaultDatabase + ";password=;user=root";
-        ConnectionInfo ci = new ConnectionInfo(url);
-        session = (ServerSession) ci.createSession();
     }
 
     public ServerSession getSession() {
-        return session;
+        return LealoneDatabase.getInstance().getDatabase(defaultDatabase).getSystemSession();
     }
 
     public String executeService(String serviceName, String methodName, Map<String, Object> methodArgs) {
@@ -78,8 +70,8 @@ public class ServiceHandler {
                 String result = SystemService.execute(dbName, schemaName, methodName, methodArgs);
                 ac.setAsyncResult(result);
             } else {
-                Service.executeAsync(session, dbName, schemaName, serviceName, methodName, methodArgs,
-                        disableDynamicCompile).onComplete(ar -> {
+                Service.executeAsync(getSession(), dbName, schemaName, serviceName, methodName,
+                        methodArgs, disableDynamicCompile).onComplete(ar -> {
                             Object r = ar.getResult();
 
                             // 如果为null就返回"null"字符串

@@ -224,4 +224,15 @@ public class LealoneDatabase extends Database
             }
         }
     }
+
+    public synchronized static Database getOrCreateEmbeddedDatabase(String dbName) {
+        Database db = getInstance().findDatabase(dbName);
+        if (db == null) {
+            db = getInstance().createEmbeddedDatabase(dbName,
+                    new ConnectionInfo(Constants.getEmbedUrl(dbName)));
+        }
+        if (!db.isInitialized())
+            db.init();
+        return db;
+    }
 }

@@ -91,19 +91,21 @@ public class HttpServerStart extends HttpRouter implements ConfigListener {
         @Override
         protected void doGet(HttpServletRequest req, HttpServletResponse resp)
                 throws ServletException, IOException {
-            // if (!req.isAsyncStarted())
-            // req.startAsync();
-            // req.getAsyncContext().start(() -> {
-            // try {
+            if (!req.isAsyncStarted())
+                req.startAsync();
+            Runnable r = () -> {
+                try {
+                    run(req, resp);
+                    req.getAsyncContext().complete();
+                } catch (ServletException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            };
+            new Thread(r).start();
+            // req.getAsyncContext().start(r);
             // run(req, resp);
-            // req.getAsyncContext().complete();
-            // } catch (ServletException e) {
-            // e.printStackTrace();
-            // } catch (IOException e) {
-            // e.printStackTrace();
-            // }
-            // });
-            run(req, resp);
             // asyncQuery(req, resp);
         }
 
